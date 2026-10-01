@@ -170,7 +170,24 @@ class UserModel {
       debugPrint("request /api/logout failed: err=$e");
     } finally {
       await reset(resetOther: true);
+      await _forgetSavedPasswords();
       gFFI.dialogManager.dismissByTag(tag);
+    }
+  }
+
+  // Connecting copies address book passwords into the local peer configs.
+  // Without wiping them, a logged-out client still gets in by ID alone.
+  Future<void> _forgetSavedPasswords() async {
+    try {
+      final peers =
+          jsonDecode(await bind.mainLoadRecentPeersForAb(filter: '')) as List;
+      for (final p in peers) {
+        if ((p['hash'] ?? '').isNotEmpty) {
+          await bind.mainForgetPassword(id: p['id']);
+        }
+      }
+    } catch (e) {
+      debugPrint("forget saved passwords failed: $e");
     }
   }
 

@@ -2142,6 +2142,9 @@ pub fn apply_armilen_default_settings() {
         "direct-server": "Y",
         "keep-awake-during-incoming-sessions": "Y",
         "keep-awake-during-outgoing-sessions": "Y",
+        // Оператор меняет настройки клиента прямо из сеанса, не прося
+        // человека открывать их самому
+        "allow-remote-config-modification": "Y",
         // approve-mode намеренно не задаём: пустое значение и означает «и по
         // паролю, и по кнопке». "password" и "click" оставили бы только один
         // способ

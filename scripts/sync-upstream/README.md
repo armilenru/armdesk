@@ -30,11 +30,10 @@ sudo chown -R rustdesk:rustdesk /opt/rustdesk-fork
 sudo install -d -m 750 /etc/armilen
 sudo tee /etc/armilen/rustdesk-sync.env >/dev/null <<'EOF'
 GH_TOKEN=github_pat_xxx
-# Optional Telegram alerts (VPS reaches Telegram via local Xray proxy):
-TG_BOT_TOKEN=123:abc
-TG_CHAT_ID=-1000000000000
-HTTPS_PROXY=http://127.0.0.1:1080
 EOF
+# Telegram alerts use the ops bot from /etc/armilen/ops-telegram.env
+# (TG_ADMIN_BOT_TOKEN, TG_ADMIN_CHAT_ID[_SECONDARY]). The armilen-site deploy
+# rewrites it from its .env on every run; do not copy the token here.
 sudo chmod 640 /etc/armilen/rustdesk-sync.env
 sudo chown root:rustdesk /etc/armilen/rustdesk-sync.env
 
@@ -74,4 +73,4 @@ TRIGGER_BUILD=false … node scripts/sync-upstream/sync-upstream.mjs --force
 | `BASE_BRANCH` | `master` | branch our branding lives on |
 | `GH_WORKFLOW` | `flutter-build.yml` | workflow dispatched on the sync branch |
 | `TRIGGER_BUILD` | `true` | set `false` to skip the build dispatch |
-| `TG_BOT_TOKEN`,`TG_CHAT_ID`,`HTTPS_PROXY` | – | optional Telegram alerts |
+| `TG_ADMIN_BOT_TOKEN`,`TG_ADMIN_CHAT_ID`,`HTTPS_PROXY` | – | Telegram alerts, from `/etc/armilen/ops-telegram.env` |

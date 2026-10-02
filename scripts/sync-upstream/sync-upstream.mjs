@@ -100,8 +100,10 @@ function writeState(state) {
 // and undici resolves (the VPS reaches Telegram through a local Xray proxy);
 // otherwise a direct fetch. Never throws.
 async function notify(text) {
-	const token = (process.env.TG_BOT_TOKEN || "").trim();
-	const chatId = (process.env.TG_CHAT_ID || "").trim();
+	// TG_ADMIN_* come from /etc/armilen/ops-telegram.env, which the site deploy
+	// rewrites from its .env on every run: a private token copy went stale once.
+	const token = (process.env.TG_ADMIN_BOT_TOKEN || process.env.TG_BOT_TOKEN || "").trim();
+	const chatId = (process.env.TG_ADMIN_CHAT_ID || process.env.TG_CHAT_ID || "").trim();
 	if (!token || !chatId) return;
 	try {
 		const proxy = (process.env.HTTPS_PROXY || "").trim();
@@ -114,13 +116,15 @@ async function notify(text) {
 				// undici not installed: fall back to a direct connection
 			}
 		}
-		await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+		const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
 			signal: AbortSignal.timeout(15_000),
 			...(dispatcher ? { dispatcher } : {}),
 		});
+		// A rejected token answers 401 without throwing: say so in the journal
+		if (!res.ok) log(`telegram notify rejected (non-fatal): HTTP ${res.status}`);
 	} catch (err) {
 		log(`telegram notify failed (non-fatal): ${err.message}`);
 	}

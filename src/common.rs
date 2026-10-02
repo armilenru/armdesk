@@ -1987,11 +1987,21 @@ async fn secure_tcp_impl(conn: &mut Stream, key: &str, log_on_success: bool) -> 
 // нашего hbbs он не мог отработать ни разу. Если синхронизация с апстримом
 // принесёт новый вызов, сборка сломается на неизвестном имени, и место разберём
 // осознанно, вместо того чтобы снова выпустить клиент без исходящих соединений.
-pub async fn secure_tcp_optional(conn: &mut Stream, key: &str) {
+//
+// Возвращает, зашифрован ли канал. Если нет, токен аккаунта в hbbs не шлём:
+// открытый hbbs его не читает, а по открытому каналу его увидит любой, кто
+// слушает сеть, и получит доступ к адресной книге.
+pub async fn secure_tcp_optional(conn: &mut Stream, key: &str) -> bool {
     match timeout(SECURE_TCP_TIMEOUT, secure_tcp_impl(conn, key, true)).await {
-        Ok(Ok(())) => {}
-        Ok(Err(err)) => log::warn!("Failed to secure tcp: {err}"),
-        Err(_) => log::info!("Rendezvous server offers no key exchange, continuing unencrypted"),
+        Ok(Ok(())) => true,
+        Ok(Err(err)) => {
+            log::warn!("Failed to secure tcp: {err}");
+            false
+        }
+        Err(_) => {
+            log::info!("Rendezvous server offers no key exchange, continuing unencrypted");
+            false
+        }
     }
 }
 

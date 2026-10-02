@@ -981,7 +981,7 @@ fn upgrade_installed_copy_if_newer() -> bool {
     }
     // Written by install_me()/update_me(); an install old enough to predate it
     // reports nothing, and guessing is worse than leaving the app alone.
-    let installed_version = windows::get_reg("Version");
+    let installed_version = windows::get_installed_version();
     if installed_version.is_empty()
         || hbb_common::get_version_number(crate::VERSION)
             <= hbb_common::get_version_number(&installed_version)

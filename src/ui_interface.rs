@@ -576,7 +576,7 @@ pub fn is_installed_lower_version() -> bool {
     return false;
     #[cfg(windows)]
     {
-        let installed = crate::platform::windows::get_reg("Version");
+        let installed = crate::platform::windows::get_installed_version();
         if installed.is_empty() {
             return false;
         }

@@ -1274,6 +1274,17 @@ pub fn lock_screen() {
 
 const IS1: &str = "{54E86BC2-6C85-41F3-A9EB-1A94AC9B1F93}_is1";
 
+// install_me() and update_me() store the version with "-" replaced by ".",
+// so 1.4.9-2 is in the registry as 1.4.9.2; get_version_number() needs the dash.
+pub fn get_installed_version() -> String {
+    let v = get_reg("Version");
+    let parts: Vec<&str> = v.split('.').collect();
+    if let [a, b, c, d] = parts[..] {
+        return format!("{a}.{b}.{c}-{d}");
+    }
+    v
+}
+
 fn get_subkey(name: &str, wow: bool) -> String {
     let tmp = format!(
         "HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{}",
@@ -1573,7 +1584,8 @@ pub fn install_me(options: &str, path: String, silent: bool, debug: bool) -> Res
         version_minor = versions[1];
     }
     if versions.len() > 2 {
-        version_build = versions[2];
+        // 1.4.9-2: VersionBuild is a REG_DWORD, so drop the ArmDesk build number
+        version_build = versions[2].split('-').next().unwrap_or("0");
     }
     let app_name = crate::get_app_name();
 
@@ -3294,7 +3306,8 @@ pub fn update_me(debug: bool) -> ResultType<()> {
         version_minor = versions[1];
     }
     if versions.len() > 2 {
-        version_build = versions[2];
+        // 1.4.9-2: VersionBuild is a REG_DWORD, so drop the ArmDesk build number
+        version_build = versions[2].split('-').next().unwrap_or("0");
     }
     let version = crate::VERSION.replace("-", ".");
     let size = get_directory_size_kb(&path);

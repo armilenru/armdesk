@@ -426,9 +426,10 @@ impl Client {
             NatType::from_i32(my_nat_type).unwrap_or(NatType::UNKNOWN_NAT)
         };
 
+        let mut secured = false;
         if !key.is_empty() && !token.is_empty() {
             // mainly for the security of token
-            secure_tcp_optional(&mut socket, &key).await;
+            secured = secure_tcp_optional(&mut socket, &key).await;
         } else if let Some(udp) = udp.1.as_ref() {
             let tm = Instant::now();
             loop {
@@ -459,7 +460,7 @@ impl Client {
         let punch_type = if udp_nat_port > 0 { "UDP" } else { "TCP" };
         msg_out.set_punch_hole_request(PunchHoleRequest {
             id: peer.to_owned(),
-            token: token.to_owned(),
+            token: if secured { token.to_owned() } else { String::new() },
             nat_type: nat_type.into(),
             licence_key: key.to_owned(),
             conn_type: conn_type.into(),
@@ -853,9 +854,10 @@ impl Client {
                 .await
                 .with_context(|| "Failed to connect to rendezvous server")?;
 
+            let mut secured = false;
             if !key.is_empty() && !token.is_empty() {
                 // mainly for the security of token
-                secure_tcp_optional(&mut socket, key).await;
+                secured = secure_tcp_optional(&mut socket, key).await;
             }
 
             ipv4 = socket.local_addr().is_ipv4();
@@ -871,7 +873,7 @@ impl Client {
             );
             msg_out.set_request_relay(RequestRelay {
                 id: peer.to_owned(),
-                token: token.to_owned(),
+                token: if secured { token.to_owned() } else { String::new() },
                 uuid: uuid.clone(),
                 relay_server: relay_server.clone(),
                 secure,
@@ -4028,10 +4030,10 @@ async fn hc_connection_(
     let host = check_port(&rendezvous_server, RENDEZVOUS_PORT);
     let mut conn = connect_tcp(host.clone(), CONNECT_TIMEOUT).await?;
     let key = crate::get_key(true).await;
-    crate::secure_tcp_optional(&mut conn, &key).await;
+    let secured = crate::secure_tcp_optional(&mut conn, &key).await;
     let mut msg_out = RendezvousMessage::new();
     msg_out.set_hc(HealthCheck {
-        token,
+        token: if secured { token } else { String::new() },
         ..Default::default()
     });
     conn.send(&msg_out).await?;

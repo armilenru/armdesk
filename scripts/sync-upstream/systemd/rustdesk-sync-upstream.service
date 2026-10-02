@@ -15,10 +15,11 @@ Type=oneshot
 Environment=REPO_DIR=/opt/rustdesk-fork
 WorkingDirectory=/opt/rustdesk-fork
 
-# gh + git must be authenticated as this user with push access to the fork.
-# Prefer a fine-grained PAT exported to gh, e.g. via an EnvironmentFile:
-#   EnvironmentFile=-/etc/armilen/rustdesk-sync.env   (GH_TOKEN=…, TG_BOT_TOKEN=…, TG_CHAT_ID=…, HTTPS_PROXY=…)
+# gh + git must be authenticated as this user with push access to the fork:
+# GH_TOKEN (fine-grained PAT) lives in rustdesk-sync.env. The ops bot token and
+# chats come from ops-telegram.env, written by the site deploy, never copied here.
 EnvironmentFile=-/etc/armilen/rustdesk-sync.env
+EnvironmentFile=-/etc/armilen/ops-telegram.env
 
 ExecStart=/usr/bin/node scripts/sync-upstream/sync-upstream.mjs
 

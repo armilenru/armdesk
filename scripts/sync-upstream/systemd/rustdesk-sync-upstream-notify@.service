@@ -1,17 +1,21 @@
 [Unit]
 Description=Alert that %i failed
-# Templated OnFailure= handler for rustdesk-sync-upstream.service. The main
-# script already sends its own Telegram alert on the paths it can catch; this
-# is the backstop for the cases where it dies before that (OOM, exec failure).
+# Templated OnFailure= handler for rustdesk-sync-upstream.service: the backstop
+# for failures the script cannot report itself (crash, exec failure, fatal
+# error). Token and chats are the ops bot's, from /etc/armilen/ops-telegram.env:
+# the site deploy rewrites that file from its .env on every run, so a rotated
+# token reaches this unit too. A private copy in rustdesk-sync.env went stale,
+# and failures went unreported for weeks.
 
 [Service]
 Type=oneshot
-EnvironmentFile=-/etc/armilen/rustdesk-sync.env
-# Posts a one-line failure notice if Telegram creds are present; otherwise noop.
+EnvironmentFile=-/etc/armilen/ops-telegram.env
+# No braces around variables: systemd would expand ${...} itself before bash
 ExecStart=/usr/bin/bash -c '\
-  test -n "$TG_BOT_TOKEN" -a -n "$TG_CHAT_ID" || exit 0; \
-  curl -fsS --max-time 15 ${HTTPS_PROXY:+--proxy "$HTTPS_PROXY"} \
-    "https://api.telegram.org/bot$TG_BOT_TOKEN/sendMessage" \
-    -d chat_id="$TG_CHAT_ID" \
-    --data-urlencode text="❌ %i завершился с ошибкой (см. journalctl -u %i)" >/dev/null'
+  test -n "$TG_ADMIN_BOT_TOKEN" -a -n "$TG_ADMIN_CHAT_ID" || exit 0; \
+  for chat in $TG_ADMIN_CHAT_ID $TG_ADMIN_CHAT_ID_SECONDARY; do \
+    curl -fsS --max-time 15 "https://api.telegram.org/bot$TG_ADMIN_BOT_TOKEN/sendMessage" \
+      -d chat_id="$chat" \
+      --data-urlencode text="❌ %i завершился с ошибкой. Причина: sudo journalctl -u %i -n 30 --no-pager" >/dev/null; \
+  done'
 User=rustdesk

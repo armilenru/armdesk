@@ -12,7 +12,7 @@ ArmDesk это форк клиента удалённого рабочего с�
 
 Установщики для Windows, macOS, Linux и Android лежат на
 https://www.armilen.ru/support. Те же файлы приложены к
-[релизам](https://github.com/profax/armdesk/releases) этого репозитория.
+[релизам](../../releases) этого репозитория.
 
 ## Отличия от RustDesk
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-import optparse  # aislop-ignore-line ai-slop/hallucinated-import -- optparse is Python stdlib, not a hallucinated package
+import optparse
 import subprocess
 from hashlib import md5
 import brotli

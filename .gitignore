@@ -1,6 +1,3 @@
-# aislop
-**/.aislop/session.jsonl
-**/.aislop/history.jsonl
 # Граф кода для навигации, машинно-локальный
 graphify-out/
 /build

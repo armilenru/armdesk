@@ -2495,3 +2495,40 @@ jobs:
               echo "удаляю $asset"
               gh release delete-asset "${TAG_NAME}" "$asset" --repo "${GITHUB_REPOSITORY}" --yes
             done
+
+  # Именованный релиз версии из тех же файлов, что лежат в nightly и уезжают
+  # на сайт: вторая сборка дала бы другие файлы под тем же номером. Тег ставит
+  # GITHUB_TOKEN, поэтому flutter-tag.yml на него не срабатывает. Релиз
+  # создаётся один раз на номер: сборка без смены VERSION его не трогает.
+  publish-version-release:
+    name: Publish version release
+    if: inputs.upload-artifact == true && inputs.upload-tag == 'nightly'
+    needs:
+      - build-for-windows-flutter
+      - build-macos-universal
+      - build-appimage
+      - build-rustdesk-android-universal
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create the release unless it exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="v${VERSION}"
+          if gh release view "$tag" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "release $tag already exists"
+            exit 0
+          fi
+          gh release download "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" --dir assets \
+            --pattern "rustdesk-${VERSION}-*"
+          read -r -d '' NOTES <<EOF || true
+          Сборка ArmDesk ${VERSION} на базе RustDesk (AGPL-3.0).
+
+          Клиенты для пользователей: https://www.armilen.ru/support
+          Политика конфиденциальности: https://www.armilen.ru/legal/armdesk-privacy
+          EOF
+          gh release create "$tag" assets/* --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" --title "$tag" --notes "$NOTES"

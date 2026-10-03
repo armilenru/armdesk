@@ -6,10 +6,13 @@
 // opens a PR against our base branch. The PR starts the four-platform build by
 // itself (flutter-ci.yml).
 //
-// Deliberately NOT auto-merging to the base branch or deploying: a remote-access
-// client is security-sensitive, so a human reviews the PR + a green build before
-// anything ships. The submodule branding (config.rs APP_NAME) is reapplied by
-// the apply-branding CI action, so nothing branding-related is lost in the merge.
+// A PR opened here says "auto-release: on": once its build and tests are green,
+// .github/workflows/sync-release.yml merges it and starts the release build, and
+// the new version reaches the site and the clients with nobody in between
+// (owner's decision, 2026-10-03). A merge that needs a human never gets here:
+// conflicts abort the run and alert. The submodule branding (config.rs APP_NAME)
+// is reapplied by the apply-branding CI action, so nothing branding-related is
+// lost in the merge.
 //
 // Runs from a systemd timer (see scripts/sync-upstream/systemd/). All progress
 // goes to stdout/journald; failures exit non-zero so `OnFailure=` can alert.
@@ -246,7 +249,9 @@ function openPr(latest, branch, version) {
 		"--body",
 		`Automated merge of upstream tag \`${latest}\` onto the ArmDesk branding, versioned ${version}.\n\n` +
 			`- Branding of submodule code (config.rs APP_NAME) is reapplied by the apply-branding CI action.\n` +
-			`- Review the diff and this PR's build before merging to \`${BASE_BRANCH}\`.`,
+			`- Merged and released by sync-release.yml once this PR's build and tests are green. ` +
+			`Delete the line below to stop that.\n\n` +
+			`auto-release: on`,
 	]);
 	log(pr.ok ? `PR opened: ${pr.out}` : `gh pr create: ${pr.err || pr.out} (may already exist)`);
 	return pr.ok ? pr.out : "";
@@ -327,7 +332,7 @@ async function main() {
 
 	git("checkout", BASE_BRANCH);
 	writeState({ lastTag: latest, syncedAt: new Date().toISOString(), branch });
-	const done = `✅ ArmDesk: upstream ${latest} слит в ветку ${branch} как ${version}, сборка PR идёт. Проверьте PR перед мержем в ${BASE_BRANCH}.\n${prUrl}`;
+	const done = `✅ ArmDesk: upstream ${latest} слит в ветку ${branch} как ${version}, сборка PR идёт. Пройдёт на всех платформах, выпуск начнётся сам.\n${prUrl}`;
 	log(done);
 	await notify(done);
 }

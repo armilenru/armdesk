@@ -5,10 +5,14 @@ Watches `rustdesk/rustdesk` for new **stable** release tags (plain semver, e.g.
 our branding on a throwaway branch as ArmDesk `<tag>-1` and opens a PR against
 `master`. The PR starts the four-platform build by itself (`flutter-ci.yml`).
 
-It does **not** auto-merge to `master` or deploy: a human reviews the PR and a
-green build first (this is a remote-access client). Submodule branding
-(`config.rs` `APP_NAME`) is reapplied by the `apply-branding` CI action, so it
-survives every merge.
+A PR opened by the script carries the line `auto-release: on`. Once its build
+and tests are green, `.github/workflows/sync-release.yml` merges it and starts
+the release build: the version reaches the site and the clients with nobody in
+between (owner's decision, 2026-10-03). Delete the line from the PR to stop
+that. A merge with real conflicts never gets a PR: the run aborts and alerts,
+and whoever resolves it by hand releases it. Submodule branding (`config.rs`
+`APP_NAME`) is reapplied by the `apply-branding` CI action, so it survives every
+merge.
 
 ## What it does per run
 

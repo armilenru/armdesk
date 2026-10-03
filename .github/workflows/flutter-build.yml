@@ -88,6 +88,8 @@ env:
 
 jobs:
   generate-sbom:
+    # Armilen: опись зависимостей для релиза на сайт не уезжает.
+    if: ${{ inputs.full-matrix }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -472,7 +474,7 @@ jobs:
         # Building the arm64 template on the native arm64 runner makes the ARM
         # package available: the build agents are x64 and cannot run
         # preprocess.py against an ARM exe.
-        if: env.UPLOAD_ARTIFACT == 'true'
+        if: env.UPLOAD_ARTIFACT == 'true' && inputs.full-matrix
         run: |
           git checkout -- res/msi
           cp -r ./rustdesk ./rustdesk-msi-template
@@ -496,7 +498,7 @@ jobs:
           rm -r -fo ./rustdesk-msi-template
 
       - name: Upload unsigned msi template
-        if: env.UPLOAD_ARTIFACT == 'true'
+        if: env.UPLOAD_ARTIFACT == 'true' && inputs.full-matrix
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: rustdesk-unsigned-msi-template-${{ matrix.job.arch }}
@@ -2064,6 +2066,9 @@ jobs:
   # old for it. A separate job rather than a matrix entry of build-rustdesk-linux: appimage and
   # flatpak need that job, and a failure here must not skip them.
   build-rustdesk-linux-drm:
+    # Armilen: отдельный deb для Wayland без присмотра мы не публикуем, а стоит
+    # он второй полной сборки Linux.
+    if: ${{ inputs.full-matrix }}
     needs: [generate-bridge]
     name: build rustdesk linux drm x86_64
     runs-on: ubuntu-22.04
@@ -2893,9 +2898,10 @@ jobs:
 
           Клиенты для пользователей: https://www.armilen.ru/support
           Политика конфиденциальности: https://www.armilen.ru/legal/armdesk-privacy
-
-          Релиз скользящий: содержимое соответствует текущему состоянию ветки master.
           EOF
+          if [ "$TAG" = "nightly" ]; then
+            NOTES+=$'\n\nРелиз скользящий: содержимое соответствует текущему состоянию ветки master.'
+          fi
           gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${id}" \
             -f body="$NOTES" --jq '.html_url'
 
@@ -2911,8 +2917,9 @@ jobs:
     # обычным push-CI (flutter-ci.yml, upload-artifact: false - ничего не
     # публикует в релиз nightly) и flutter-nightly.yml (upload-artifact: true -
     # реально публикует). Уведомлять есть смысл только когда что-то новое
-    # действительно ушло в релиз.
-    if: inputs.upload-artifact == true
+    # действительно ушло в релиз. Только nightly: кнопка в сообщении выкладывает
+    # на сайт именно его, сборка под другим тегом туда не попадает.
+    if: inputs.upload-artifact == true && inputs.upload-tag == 'nightly'
     needs:
       - build-for-windows-flutter
       - build-macos-universal

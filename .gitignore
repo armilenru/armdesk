@@ -1,3 +1,8 @@
+# aislop
+**/.aislop/session.jsonl
+**/.aislop/history.jsonl
+# Граф кода для навигации, машинно-локальный
+graphify-out/
 /build
 /target
 .vscode
@@ -56,8 +61,5 @@ vcpkg_installed
 flutter/lib/generated_plugin_registrant.dart
 libsciter.dylib
 flutter/web/
-# aislop
-**/.aislop/session.jsonl
-**/.aislop/history.jsonl
-# Граф кода для навигации, машинно-локальный
-graphify-out/
+# libdrmtap is cloned at build time by build.py (not a submodule)
+/third_party/libdrmtap/

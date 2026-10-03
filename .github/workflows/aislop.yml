@@ -7,6 +7,8 @@ on:
 
 jobs:
   quality-gate:
+    # Дифф PR синхронизации это код апстрима, а не наш: гейт на нём красный всегда.
+    if: ${{ !startsWith(github.head_ref, 'sync/upstream-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

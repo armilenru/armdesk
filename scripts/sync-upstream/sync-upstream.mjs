@@ -2,8 +2,9 @@
 //
 // Watches rustdesk/rustdesk for new *stable* release tags (plain semver, e.g.
 // 1.4.8 — nightly/pre-release tags are ignored) and, when one appears, merges
-// it onto our branding commits on a throwaway branch, opens a PR against our
-// base branch and triggers the flutter-build workflow on that branch.
+// it onto our branding commits on a throwaway branch as ArmDesk <tag>-1 and
+// opens a PR against our base branch. The PR starts the four-platform build by
+// itself (flutter-ci.yml).
 //
 // Deliberately NOT auto-merging to the base branch or deploying: a remote-access
 // client is security-sensitive, so a human reviews the PR + a green build before
@@ -19,25 +20,23 @@
 //   UPSTREAM_REMOTE name of the upstream remote         (default: upstream)
 //   FORK_REMOTE     name of our fork remote             (default: origin)
 //   BASE_BRANCH     branch our branding lives on        (default: master)
-//   GH_WORKFLOW     workflow file to dispatch           (default: flutter-build.yml)
-//   TRIGGER_BUILD   dispatch the build workflow         (default: true)
 //   TG_BOT_TOKEN, TG_CHAT_ID, HTTPS_PROXY   optional Telegram alert
 // CLI: --force  process the latest stable tag even if already recorded.
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
+import { VERSION_FILES, parseBuild, parseVersion, readVersion, setVersion } from "../set-version.mjs";
 
 const UPSTREAM_URL = "https://github.com/rustdesk/rustdesk.git";
 const REPO_DIR = path.resolve(process.env.REPO_DIR || process.cwd());
 const UPSTREAM_REMOTE = process.env.UPSTREAM_REMOTE || "upstream";
 const FORK_REMOTE = process.env.FORK_REMOTE || "origin";
 const BASE_BRANCH = process.env.BASE_BRANCH || "master";
-const GH_WORKFLOW = process.env.GH_WORKFLOW || "flutter-build.yml";
-const TRIGGER_BUILD = (process.env.TRIGGER_BUILD || "true") !== "false";
 // DRY_RUN performs the merge locally to check it applies cleanly, then rolls the
-// branch back without pushing, opening a PR, dispatching a build or touching state.
+// branch back without pushing, opening a PR or touching state.
 const DRY_RUN = (process.env.DRY_RUN || "false") === "true";
 const STATE_FILE = path.join(REPO_DIR, ".git", "upstream-sync-state.json");
+const REPLACED_FILES = ["README.md"];
 const FORCE = process.argv.includes("--force");
 
 const log = (m) => console.log(`[sync-upstream] ${m}`);
@@ -68,8 +67,8 @@ const hasGh = () => tryRun("gh", ["--version"]).ok;
 // and picks the wrong one whenever both FORK_REMOTE and UPSTREAM_REMOTE are
 // configured (as ensureUpstreamRemote() below guarantees) - it favors a
 // remote literally named "upstream". Every gh call here must pass --repo
-// explicitly, derived from FORK_REMOTE's own URL, or PR creation and build
-// dispatch silently target rustdesk/rustdesk instead of our fork.
+// explicitly, derived from FORK_REMOTE's own URL, or PR creation silently
+// targets rustdesk/rustdesk instead of our fork.
 function forkRepoSlug() {
 	const url = tryGit("remote", "get-url", FORK_REMOTE).out || "";
 	const m = /github\.com[:/]([^/]+\/[^/.]+)(?:\.git)?$/.exec(url);
@@ -149,6 +148,110 @@ function latestUpstreamStable() {
 	return tags.sort(newerStable).pop();
 }
 
+// The clone runs this file from its own working tree, and the fast-forward may
+// replace it: start over on the new code instead of finishing on the old one.
+function restartedOnNewerBase() {
+	const before = git("rev-parse", "HEAD");
+	// Keep base in step with our fork if it can fast-forward; ignore divergence.
+	tryGit("merge", "--ff-only", `${FORK_REMOTE}/${BASE_BRANCH}`);
+	if (git("rev-parse", "HEAD") === before || process.env.SYNC_UPSTREAM_RESTARTED) return false;
+	log(`${BASE_BRANCH} moved, restarting on the updated script`);
+	try {
+		execFileSync(process.execPath, process.argv.slice(1), {
+			stdio: "inherit",
+			env: { ...process.env, SYNC_UPSTREAM_RESTARTED: "1" },
+		});
+	} catch (err) {
+		process.exitCode = err.status || 1;
+	}
+	return true;
+}
+
+// The service user has no git identity, and without one git refuses a merge
+// before it starts: no conflict, no unmerged files, just exit 128. Commits made
+// here continue the base branch, so they carry its last author.
+function adoptBaseIdentity() {
+	const [name, email] = git("log", "-1", "--format=%an%n%ae").split("\n");
+	for (const who of ["AUTHOR", "COMMITTER"]) {
+		process.env[`GIT_${who}_NAME`] ||= name;
+		process.env[`GIT_${who}_EMAIL`] ||= email;
+	}
+}
+
+// Only the version files, never `commit -a`: with the submodule checked out,
+// -a would stage its old commit back over the pointer the merge just moved.
+function commitVersion(message) {
+	git("add", "--", ...VERSION_FILES);
+	if (tryGit("diff", "--cached", "--quiet").ok) return;
+	git("commit", "-m", message);
+}
+
+// When the only conflicts are in files we replaced wholesale, our copy stands:
+// upstream's edits to its own README have nothing to apply to.
+function keptOurs() {
+	const unmerged = tryGit("diff", "--name-only", "--diff-filter=U").out.split("\n").filter(Boolean);
+	if (!unmerged.length || unmerged.some((file) => !REPLACED_FILES.includes(file))) return false;
+	git("checkout", "--ours", "--", ...unmerged);
+	git("add", "--", ...unmerged);
+	return true;
+}
+
+// Our "-N" build number sits on the very lines upstream rewrites in every
+// release, so a plain merge conflicts each time. Upstream's own previous
+// version goes back first: the lines then equal the merge base and take the
+// new version cleanly. Afterwards the tag is stamped as <tag>-1.
+function mergeAsArmDesk(latest) {
+	const ours = readVersion(REPO_DIR);
+	const base = git("merge-base", "HEAD", latest);
+	const atBase = (file) => git("show", `${base}:${file}`);
+	setVersion(REPO_DIR, parseVersion(atBase("Cargo.toml")), parseBuild(atBase("flutter/pubspec.yaml")));
+	commitVersion(`sync: upstream's version lines back before merging ${latest}`);
+
+	let merge = tryGit("merge", "--no-edit", latest);
+	if (!merge.ok && keptOurs()) merge = tryGit("commit", "--no-edit");
+	if (!merge.ok) return { merge };
+
+	const version = `${latest}-1`;
+	setVersion(REPO_DIR, version, Math.max(ours.build, readVersion(REPO_DIR).build) + 1);
+	commitVersion(`chore: version ${version}`);
+	return { version };
+}
+
+async function reportConflict(latest, branch, baseSha, merge, state) {
+	const files = tryGit("diff", "--name-only", "--diff-filter=U").out;
+	tryGit("merge", "--abort");
+	git("checkout", BASE_BRANCH);
+	tryGit("branch", "-D", branch);
+	// The tag and the base it failed on: the same pair is not retried and not
+	// reported again, a new commit on the base branch is.
+	writeState({ ...state, conflictTag: latest, conflictBase: baseSha, conflictAt: new Date().toISOString() });
+	const detail = files ? `Файлы:\n${files}` : `git:\n${merge.err || merge.out}`;
+	const msg = `⚠️ ArmDesk: upstream ${latest} не слился сам, нужно ручное слияние.\n${detail}`;
+	log(msg);
+	await notify(msg);
+	process.exitCode = 1;
+}
+
+function openPr(latest, branch, version) {
+	if (!hasGh()) {
+		log("gh CLI not found: open a PR manually for the sync branch");
+		return "";
+	}
+	const pr = tryRun("gh", [
+		"pr", "create",
+		"--repo", forkRepoSlug(),
+		"--base", BASE_BRANCH,
+		"--head", branch,
+		"--title", `Sync upstream RustDesk ${latest} (ArmDesk ${version})`,
+		"--body",
+		`Automated merge of upstream tag \`${latest}\` onto the ArmDesk branding, versioned ${version}.\n\n` +
+			`- Branding of submodule code (config.rs APP_NAME) is reapplied by the apply-branding CI action.\n` +
+			`- Review the diff and this PR's build before merging to \`${BASE_BRANCH}\`.`,
+	]);
+	log(pr.ok ? `PR opened: ${pr.out}` : `gh pr create: ${pr.err || pr.out} (may already exist)`);
+	return pr.ok ? pr.out : "";
+}
+
 async function main() {
 	if (!existsSync(path.join(REPO_DIR, ".git"))) {
 		throw new Error(`${REPO_DIR} is not a git repository (set REPO_DIR)`);
@@ -184,32 +287,34 @@ async function main() {
 		throw new Error("working tree is dirty; refusing to sync");
 	}
 
+	git("checkout", BASE_BRANCH);
+	if (restartedOnNewerBase()) return;
+	const baseSha = git("rev-parse", "HEAD");
+
+	if (tryGit("merge-base", "--is-ancestor", latest, "HEAD").ok) {
+		writeState({ lastTag: latest, syncedAt: new Date().toISOString() });
+		log(`${latest} is already in ${BASE_BRANCH} (merged by hand), recorded`);
+		return;
+	}
+	if (state.conflictTag === latest && state.conflictBase === baseSha && !FORCE) {
+		log(`${latest} already failed to merge onto ${baseSha.slice(0, 9)}, waiting for a manual merge`);
+		return;
+	}
+
 	const branch = `sync/upstream-${latest}`;
 	log(`preparing ${branch} from ${BASE_BRANCH}`);
-	git("checkout", BASE_BRANCH);
-	// Keep base in step with our fork if it can fast-forward; ignore divergence.
-	tryGit("merge", "--ff-only", `${FORK_REMOTE}/${BASE_BRANCH}`);
 	if (tryGit("rev-parse", "--verify", branch).ok) git("branch", "-D", branch);
 	git("checkout", "-b", branch);
+	adoptBaseIdentity();
 
-	const merge = tryGit("merge", "--no-edit", latest);
-	if (!merge.ok) {
-		const conflicts = tryGit("diff", "--name-only", "--diff-filter=U").out;
-		tryGit("merge", "--abort");
-		git("checkout", BASE_BRANCH);
-		tryGit("branch", "-D", branch);
-		// Record the conflicting tag so we don't re-alert every timer tick, but
-		// leave lastTag untouched so a resolved sync is still recognised as new.
-		writeState({ ...state, conflictTag: latest, conflictAt: new Date().toISOString() });
-		const msg = `⚠️ ArmDesk: конфликт при слиянии upstream ${latest}. Требуется ручное разрешение.\nФайлы:\n${conflicts || "(unknown)"}`;
-		log(msg);
-		await notify(msg);
-		process.exitCode = 1;
+	const { version, merge } = mergeAsArmDesk(latest);
+	if (merge) {
+		await reportConflict(latest, branch, baseSha, merge, state);
 		return;
 	}
 
 	if (DRY_RUN) {
-		log(`DRY_RUN: ${latest} merges cleanly onto ${BASE_BRANCH}; rolling back ${branch}`);
+		log(`DRY_RUN: ${latest} merges cleanly onto ${BASE_BRANCH} as ${version}; rolling back ${branch}`);
 		git("checkout", BASE_BRANCH);
 		tryGit("branch", "-D", branch);
 		return;
@@ -218,48 +323,11 @@ async function main() {
 	log("clean merge; pushing sync branch");
 	// --force-with-lease is safe: the branch is disposable and namespaced per tag.
 	git("push", "--force-with-lease", FORK_REMOTE, branch);
-
-	if (hasGh()) {
-		const repo = forkRepoSlug();
-		const pr = tryRun("gh", [
-			"pr", "create",
-			"--repo", repo,
-			"--base", BASE_BRANCH,
-			"--head", branch,
-			"--title", `Sync upstream RustDesk ${latest}`,
-			"--body",
-			`Automated merge of upstream tag \`${latest}\` onto the Armilen branding.\n\n` +
-				`- Branding of submodule code (config.rs APP_NAME) is reapplied by the apply-branding CI action.\n` +
-				`- Review the diff and the triggered build before merging to \`${BASE_BRANCH}\`.`,
-		]);
-		log(pr.ok ? `PR opened: ${pr.out}` : `gh pr create: ${pr.err || pr.out} (may already exist)`);
-	} else {
-		log("gh CLI not found: open a PR manually for the sync branch");
-	}
-
-	if (TRIGGER_BUILD && hasGh()) {
-		const repo = forkRepoSlug();
-		// upload-artifact: false — this build is for PR review (does it still
-		// compile/pass CI on all platforms?), not a publish. Merging to
-		// BASE_BRANCH is what actually ships: the next real nightly run from
-		// there uploads for real. Publishing PR-branch builds straight to the
-		// same "nightly" release that deploy-clients.js serves to real users
-		// would let unreviewed upstream code reach production before anyone
-		// looked at the diff - defeats the whole point of the PR gate.
-		const wf = tryRun("gh", [
-			"workflow", "run", GH_WORKFLOW,
-			"--repo", repo,
-			"--ref", branch,
-			"-f", "upload-artifact=false",
-		]);
-		log(wf.ok ? `CI build dispatched on ${branch} (review-only, not published)` : `workflow dispatch failed: ${wf.err || wf.out}`);
-	} else if (TRIGGER_BUILD) {
-		log(`gh CLI not found: dispatch ${GH_WORKFLOW} on ${branch} manually`);
-	}
+	const prUrl = openPr(latest, branch, version);
 
 	git("checkout", BASE_BRANCH);
 	writeState({ lastTag: latest, syncedAt: new Date().toISOString(), branch });
-	const done = `✅ ArmDesk: upstream ${latest} слит в ветку ${branch}, PR открыт, сборка запущена. Проверьте PR перед мержем в ${BASE_BRANCH}.`;
+	const done = `✅ ArmDesk: upstream ${latest} слит в ветку ${branch} как ${version}, сборка PR идёт. Проверьте PR перед мержем в ${BASE_BRANCH}.\n${prUrl}`;
 	log(done);
 	await notify(done);
 }

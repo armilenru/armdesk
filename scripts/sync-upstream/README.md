@@ -2,8 +2,8 @@
 
 Watches `rustdesk/rustdesk` for new **stable** release tags (plain semver, e.g.
 `1.4.8`; nightly/pre-release tags are ignored) and, on a new one, merges it onto
-our branding on a throwaway branch, opens a PR against `master` and triggers the
-Flutter build workflow on that branch.
+our branding on a throwaway branch as ArmDesk `<tag>-1` and opens a PR against
+`master`. The PR starts the four-platform build by itself (`flutter-ci.yml`).
 
 It does **not** auto-merge to `master` or deploy: a human reviews the PR and a
 green build first (this is a remote-access client). Submodule branding
@@ -15,9 +15,22 @@ survives every merge.
 1. `git fetch upstream --tags`, find the highest stable tag.
 2. First run records a baseline and exits (no surprise merge).
 3. New tag → branch `sync/upstream-<tag>`, `git merge` the tag onto our base.
-   - Clean → push branch, `gh pr create`, `gh workflow run flutter-build.yml --ref <branch>`.
+   - Our `-N` build number sits on the lines upstream rewrites in every release.
+     Before the merge the version files go back to upstream's previous version,
+     so they merge cleanly; after it they are stamped `<tag>-1`
+     (`scripts/set-version.mjs`, which also bumps a version by hand).
+   - A conflict in `README.md` alone keeps our README: we replaced it wholesale.
+   - Clean → push branch, `gh pr create`.
    - Conflict → abort, keep base untouched, alert with the conflicting files.
+     The same tag on the same `master` commit is not retried or reported again;
+     a new commit on `master` is.
+   - Tag already in `master` (merged by hand) → recorded, nothing else.
 4. State is kept in `.git/upstream-sync-state.json` (per clone, untracked).
+5. The clone runs the script from its own working tree. When the run
+   fast-forwards `master`, it restarts itself on the new code.
+
+Merge commits are made under the author of the last `master` commit: the
+service user has no git identity, and git refuses to start a merge without one.
 
 ## Install (systemd timer, on the always-on host)
 
@@ -59,8 +72,8 @@ Check: `systemctl list-timers rustdesk-sync-upstream.timer`,
 REPO_DIR=/opt/rustdesk-fork node scripts/sync-upstream/sync-upstream.mjs
 # Force processing the latest stable tag even if already recorded:
 REPO_DIR=/opt/rustdesk-fork node scripts/sync-upstream/sync-upstream.mjs --force
-# Skip the build dispatch while testing:
-TRIGGER_BUILD=false … node scripts/sync-upstream/sync-upstream.mjs --force
+# Merge locally to see whether it applies, push nothing, keep the state:
+DRY_RUN=true … node scripts/sync-upstream/sync-upstream.mjs --force
 ```
 
 ## Config (env)
@@ -71,6 +84,5 @@ TRIGGER_BUILD=false … node scripts/sync-upstream/sync-upstream.mjs --force
 | `UPSTREAM_REMOTE` | `upstream` | upstream remote name (auto-added if missing) |
 | `FORK_REMOTE` | `origin` | our fork remote |
 | `BASE_BRANCH` | `master` | branch our branding lives on |
-| `GH_WORKFLOW` | `flutter-build.yml` | workflow dispatched on the sync branch |
-| `TRIGGER_BUILD` | `true` | set `false` to skip the build dispatch |
+| `DRY_RUN` | `false` | merge locally, then roll the branch back |
 | `TG_ADMIN_BOT_TOKEN`,`TG_ADMIN_CHAT_ID`,`HTTPS_PROXY` | – | Telegram alerts, from `/etc/armilen/ops-telegram.env` |

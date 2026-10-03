@@ -7,8 +7,13 @@ on:
 
 jobs:
   quality-gate:
-    # Дифф PR синхронизации это код апстрима, а не наш: гейт на нём красный всегда.
-    if: ${{ !startsWith(github.head_ref, 'sync/upstream-') }}
+    # Дифф синхронизации это код апстрима, а не наш: гейт на нём красный всегда.
+    # У PR ветку называет head_ref. У пуша коммита слияния его нет, ветка видна
+    # только в сообщении «Merge pull request #N from .../sync/upstream-X».
+    if: >-
+      ${{ !startsWith(github.head_ref, 'sync/upstream-')
+      && !(github.event_name == 'push'
+      && contains(github.event.head_commit.message, '/sync/upstream-')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

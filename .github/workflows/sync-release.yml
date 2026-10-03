@@ -8,6 +8,9 @@ name: Release upstream sync
 # Сливается только PR со строкой «auto-release: on» в описании, её ставит
 # scripts/sync-upstream. Слияние, разрешённое руками, выпускает тот, кто его
 # делал: зелёная сборка не говорит, верно ли разрешён конфликт.
+#
+# Упавшая сборка такого PR тоже приходит сюда: без сообщения новая версия
+# молча не вышла бы, и узнать об этом было бы неоткуда.
 on:
   workflow_run:
     workflows: ["Full Flutter CI"]
@@ -18,7 +21,7 @@ jobs:
     # head_repository: ветка с таким именем из чужого форка сюда не проходит
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success' &&
+      contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion) &&
       startsWith(github.event.workflow_run.head_branch, 'sync/upstream-') &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
@@ -31,6 +34,8 @@ jobs:
       BRANCH: ${{ github.event.workflow_run.head_branch }}
       SHA: ${{ github.event.workflow_run.head_sha }}
       BASE: ${{ github.event.repository.default_branch }}
+      BUILD: ${{ github.event.workflow_run.conclusion }}
+      BUILD_URL: ${{ github.event.workflow_run.html_url }}
     steps:
       - name: Merge the PR and start the release build
         id: release
@@ -40,6 +45,10 @@ jobs:
             --json number,body --jq '.[0] // empty')
           if [ -z "$pr" ] || ! jq -e '.body | test("(^|\\n)auto-release: on\\s*(\\n|$)")' <<<"$pr" >/dev/null; then
             echo "no open PR with auto-release on for $BRANCH"
+            exit 0
+          fi
+          if [ "$BUILD" != "success" ]; then
+            echo "outcome=build-failed" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           tests=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$SHA" \
@@ -53,24 +62,24 @@ jobs:
             --merge --delete-branch --match-head-commit "$SHA"
           # Пуш от GITHUB_TOKEN другие workflow не запускает
           gh workflow run flutter-nightly.yml --repo "$GITHUB_REPOSITORY" --ref "$BASE"
-          echo "merged=true" >> "$GITHUB_OUTPUT"
+          echo "outcome=released" >> "$GITHUB_OUTPUT"
 
       - name: Tell the ops chat
-        if: ${{ always() && (steps.release.outputs.merged == 'true' || job.status == 'failure') }}
+        if: ${{ always() && (steps.release.outputs.outcome != '' || job.status == 'failure') }}
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_ADMIN_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_ADMIN_CHAT_ID }}
-          STATUS: ${{ job.status }}
+          OUTCOME: ${{ steps.release.outputs.outcome }}
         run: |
           set -euo pipefail
           if [ -z "${TG_BOT_TOKEN:-}" ] || [ -z "${TG_CHAT_ID:-}" ]; then
             exit 0
           fi
-          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          if [ "$STATUS" = "success" ]; then
-            text="🚀 ArmDesk: ${BRANCH#sync/upstream-} апстрима слит в ${BASE}, идёт сборка выпуска. ${run_url}"
-          else
-            text="❌ ArmDesk: ${BRANCH} не выпущен, сборка прошла, а выпуск нет. ${run_url}"
-          fi
+          tag="${BRANCH#sync/upstream-}"
+          case "$OUTCOME" in
+            released) text="🚀 ArmDesk: ${tag} апстрима слит в ${BASE}, идёт сборка выпуска." ;;
+            build-failed) text="❌ ArmDesk: сборка ${tag} апстрима упала, выпуск не начат. ${BUILD_URL}" ;;
+            *) text="❌ ArmDesk: ${tag} апстрима собран, но не выпущен. ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" ;;
+          esac
           curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
             -d chat_id="$TG_CHAT_ID" --data-urlencode text="$text" >/dev/null

@@ -24,6 +24,9 @@ concurrency:
 
 jobs:
   update:
+    # Armilen: корневые сертификаты приходят со слиянием апстрима, свой
+    # еженедельный PR в форке разбирать некому.
+    if: github.repository == 'rustdesk/rustdesk'
     runs-on: ubuntu-latest
     permissions:
       contents: write

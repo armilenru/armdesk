@@ -40,10 +40,10 @@ service user has no git identity, and git refuses to start a merge without one.
 
 ```sh
 # 1. Clone the fork where the service expects it (REPO_DIR in the unit):
-sudo git clone https://github.com/profax/rustdesk.git /opt/rustdesk-fork
+sudo git clone https://github.com/profax/armdesk.git /opt/rustdesk-fork
 sudo chown -R rustdesk:rustdesk /opt/rustdesk-fork
 
-# 2. Auth: fine-grained PAT with contents:write + workflows on profax/rustdesk.
+# 2. Auth: fine-grained PAT with contents:write + workflows on profax/armdesk.
 sudo install -d -m 750 /etc/armilen
 sudo tee /etc/armilen/rustdesk-sync.env >/dev/null <<'EOF'
 GH_TOKEN=github_pat_xxx

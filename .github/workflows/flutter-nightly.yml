@@ -20,7 +20,16 @@ on:
       - "docs/**"
       - ".github/ISSUE_TEMPLATE/**"
       - "res/msi/Package/License.rtf"
+  # Пробная сборка ветки: тот же путь с публикацией, но в отдельный релиз.
+  # Сайт берёт файлы только из nightly, поэтому до клиентов она не доходит.
+  # Сборку PR для этого не взять: шаги упаковки (MSI, AppImage, universal) в
+  # ней пропускаются.
   workflow_dispatch:
+    inputs:
+      upload-tag:
+        description: Релиз для файлов сборки; всё, кроме nightly, это пробная сборка
+        type: string
+        default: "nightly"
 
 concurrency:
   group: nightly-${{ github.ref }}
@@ -34,4 +43,25 @@ jobs:
     secrets: inherit
     with:
       upload-artifact: true
-      upload-tag: "nightly"
+      upload-tag: ${{ inputs.upload-tag || 'nightly' }}
+
+  # Упавшую сборку никто не видит: сайт молча остаётся на прежней версии, а
+  # при автоматическом выпуске апстрима письмо GitHub уходит боту, не человеку.
+  # Отменённый прогон (его вытеснил следующий пуш) сюда не попадает.
+  notify-failure:
+    needs: run-flutter-nightly-build
+    if: ${{ failure() && (inputs.upload-tag || 'nightly') == 'nightly' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tell the ops chat
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_ADMIN_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_ADMIN_CHAT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TG_BOT_TOKEN:-}" ] || [ -z "${TG_CHAT_ID:-}" ]; then
+            exit 0
+          fi
+          text="❌ ArmDesk: сборка ${GITHUB_SHA:0:7} упала, на сайт она не уйдёт. ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+            -d chat_id="$TG_CHAT_ID" --data-urlencode text="$text" >/dev/null

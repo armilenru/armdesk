@@ -16,6 +16,12 @@ on:
 
 jobs:
   run-ci:
+    # Вызываемый workflow объявляет джобы с contents: write (публикация
+    # релиза). При upload-artifact: false они пропускаются, но GitHub сверяет
+    # права до запуска и отказывает всему прогону (startup_failure), если
+    # вызывающий джоб их не дал.
+    permissions:
+      contents: write
     uses: ./.github/workflows/flutter-build.yml
     with:
       upload-artifact: false

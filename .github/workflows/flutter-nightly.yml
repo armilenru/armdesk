@@ -20,7 +20,16 @@ on:
       - "docs/**"
       - ".github/ISSUE_TEMPLATE/**"
       - "res/msi/Package/License.rtf"
+  # Пробная сборка ветки: тот же путь с публикацией, но в отдельный релиз.
+  # Сайт берёт файлы только из nightly, поэтому до клиентов она не доходит.
+  # Сборку PR для этого не взять: шаги упаковки (MSI, AppImage, universal) в
+  # ней пропускаются.
   workflow_dispatch:
+    inputs:
+      upload-tag:
+        description: Релиз для файлов сборки; всё, кроме nightly, это пробная сборка
+        type: string
+        default: "nightly"
 
 concurrency:
   group: nightly-${{ github.ref }}
@@ -34,14 +43,14 @@ jobs:
     secrets: inherit
     with:
       upload-artifact: true
-      upload-tag: "nightly"
+      upload-tag: ${{ inputs.upload-tag || 'nightly' }}
 
   # Упавшую сборку никто не видит: сайт молча остаётся на прежней версии, а
   # при автоматическом выпуске апстрима письмо GitHub уходит боту, не человеку.
   # Отменённый прогон (его вытеснил следующий пуш) сюда не попадает.
   notify-failure:
     needs: run-flutter-nightly-build
-    if: failure()
+    if: ${{ failure() && (inputs.upload-tag || 'nightly') == 'nightly' }}
     runs-on: ubuntu-latest
     steps:
       - name: Tell the ops chat

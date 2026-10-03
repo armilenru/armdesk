@@ -12,7 +12,7 @@ the RustDesk project.
 
 Installers for Windows, macOS, Linux and Android are at
 https://www.armilen.ru/support. The same files are attached to the
-[releases](https://github.com/profax/armdesk/releases) of this repository.
+[releases](../../releases) of this repository.
 
 ## What differs from upstream
 

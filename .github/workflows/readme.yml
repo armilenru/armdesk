@@ -1,0 +1,39 @@
+name: README
+
+# README.md and README.ru.md have to say the same thing and match the code
+# they describe: scripts/check-readme.mjs. A release is not held back by a
+# stale README, so a failure is reported to the ops chat instead.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Both READMEs agree with each other and with the code
+        run: node scripts/check-readme.mjs
+
+  notify-failure:
+    needs: check
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tell the ops chat
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_ADMIN_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_ADMIN_CHAT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TG_BOT_TOKEN:-}" ] || [ -z "${TG_CHAT_ID:-}" ]; then
+            exit 0
+          fi
+          text="⚠️ ArmDesk: README разошёлся с кодом или между языками (${GITHUB_REF_NAME}, ${GITHUB_SHA:0:7}). ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl -sS -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+            -d chat_id="$TG_CHAT_ID" --data-urlencode text="$text" >/dev/null

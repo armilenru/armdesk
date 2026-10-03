@@ -11,7 +11,7 @@ OnFailure=rustdesk-sync-upstream-notify@%n.service
 [Service]
 Type=oneshot
 
-# --- Host-specific: a clone of profax/armdesk this service operates on ---
+# --- Host-specific: a clone of armilenru/armdesk this service operates on ---
 Environment=REPO_DIR=/opt/rustdesk-fork
 WorkingDirectory=/opt/rustdesk-fork
 

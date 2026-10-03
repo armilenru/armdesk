@@ -235,14 +235,14 @@ async function reportConflict(latest, branch, baseSha, merge, state) {
 	process.exitCode = 1;
 }
 
+// Without the PR nothing ships and nothing says so, so a PR that could not be
+// opened is fatal: the run fails, alerts, and is retried on the next tick.
 function openPr(latest, branch, version) {
-	if (!hasGh()) {
-		log("gh CLI not found: open a PR manually for the sync branch");
-		return "";
-	}
+	if (!hasGh()) throw new Error("gh CLI not found, cannot open the PR");
+	const repo = forkRepoSlug();
 	const pr = tryRun("gh", [
 		"pr", "create",
-		"--repo", forkRepoSlug(),
+		"--repo", repo,
 		"--base", BASE_BRANCH,
 		"--head", branch,
 		"--title", `Sync upstream RustDesk ${latest} (ArmDesk ${version})`,
@@ -253,8 +253,10 @@ function openPr(latest, branch, version) {
 			`Delete the line below to stop that.\n\n` +
 			`auto-release: on`,
 	]);
-	log(pr.ok ? `PR opened: ${pr.out}` : `gh pr create: ${pr.err || pr.out} (may already exist)`);
-	return pr.ok ? pr.out : "";
+	if (pr.ok) return pr.out;
+	const existing = tryRun("gh", ["pr", "list", "--repo", repo, "--head", branch, "--json", "url", "--jq", ".[0].url"]).out;
+	if (!existing) throw new Error(`PR for ${branch} was not opened: ${pr.err || pr.out}`);
+	return existing;
 }
 
 async function main() {
@@ -328,9 +330,9 @@ async function main() {
 	log("clean merge; pushing sync branch");
 	// --force-with-lease is safe: the branch is disposable and namespaced per tag.
 	git("push", "--force-with-lease", FORK_REMOTE, branch);
-	const prUrl = openPr(latest, branch, version);
-
 	git("checkout", BASE_BRANCH);
+	const prUrl = openPr(latest, branch, version);
+	log(`PR: ${prUrl}`);
 	writeState({ lastTag: latest, syncedAt: new Date().toISOString(), branch });
 	const done = `✅ ArmDesk: upstream ${latest} слит в ветку ${branch} как ${version}, сборка PR идёт. Пройдёт на всех платформах, выпуск начнётся сам.\n${prUrl}`;
 	log(done);

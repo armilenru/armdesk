@@ -1,17 +1,47 @@
 # ArmDesk
 
-Форк клиента [RustDesk](https://github.com/rustdesk/rustdesk) для ИТ-студии
-ARMILEN. Собран с предустановленным подключением к нашей инфраструктуре и
-брендированием; выкладывается на https://www.armilen.ru/support.
+[Русская версия](README.ru.md)
 
-Лицензия апстрима AGPL-3.0 сохраняется.
+ArmDesk is a fork of the [RustDesk](https://github.com/rustdesk/rustdesk)
+remote desktop client, built by the IT studio [ARMILEN](https://www.armilen.ru)
+to support its clients. It comes preconfigured for our own servers and under
+our own name. It is an independent build: not affiliated with or endorsed by
+the RustDesk project.
 
-## Отличия от апстрима
+## Download
 
-- Своё имя, иконки, логотипы и фирменный акцентный цвет.
-- Свои `hbbs`/`hbbr` и ключ сервера по умолчанию, свой адрес проверки версии.
-- Отключены регистрация, вход и синхронизация адресной книги через публичный
-  сервер RustDesk.
-- Ссылки на лицензионное соглашение ведут на `/legal/armdesk-privacy`.
-- Автообновление включено по умолчанию (апстрим держит его выключенным),
-  отключается галкой «Auto update» в клиенте.
+Installers for Windows, macOS, Linux and Android are at
+https://www.armilen.ru/support. The same files are attached to the
+[releases](https://github.com/profax/armdesk/releases) of this repository.
+
+## What differs from upstream
+
+- Its own name, icons, logos and accent colour.
+- By default it connects to our rendezvous and relay servers (`hbbs`/`hbbr`)
+  with our server key.
+- Account sign-in and the address book go to our own API server, never to
+  RustDesk's public one.
+- It checks for new versions at www.armilen.ru and updates itself by default.
+  Upstream keeps auto-update off; the "Auto update" checkbox in the settings
+  turns it off here.
+- The privacy policy link leads to
+  https://www.armilen.ru/legal/armdesk-privacy.
+
+Everything else is upstream's code.
+
+## Versions
+
+A version reads `<RustDesk version>-<ArmDesk build>`: `1.5.0-1` is the first
+ArmDesk build on top of RustDesk 1.5.0. New upstream releases are merged as
+they come out.
+
+## Building
+
+Build it the way upstream describes in its
+[README](https://github.com/rustdesk/rustdesk#readme). Release builds are made
+by GitHub Actions in this repository.
+
+## License
+
+AGPL-3.0, the same as upstream: see [LICENCE](LICENCE). The source code of
+every released build is in this repository.

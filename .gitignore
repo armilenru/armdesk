@@ -61,3 +61,5 @@ flutter/web/
 **/.aislop/history.jsonl
 # Граф кода для навигации, машинно-локальный
 graphify-out/
+# libdrmtap is cloned at build time by build.py (not a submodule)
+/third_party/libdrmtap/

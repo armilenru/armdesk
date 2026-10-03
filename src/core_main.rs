@@ -906,7 +906,7 @@ fn default_allow_auto_update() {
     config::DEFAULT_SETTINGS
         .write()
         .unwrap()
-        .entry(config::keys::OPTION_ALLOW_AUTO_UPDATE.to_owned())
+        .entry(keys::OPTION_ALLOW_AUTO_UPDATE.to_owned())
         .or_insert_with(|| "Y".to_owned());
 }
 

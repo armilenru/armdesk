@@ -3,9 +3,9 @@ description: >
   Patches sources that live in upstream-tracking submodules. The submodules
   keep pointing at rustdesk/* (no second fork to maintain), so upstream syncs
   stay conflict-free; every rebrand patch of submodule code must live in this
-  action, not in the workflows that call it. Здесь же живут правки файлов
-  основного репозитория, которые апстрим перетряхивает целиком (src/lang/*):
-  прямая правка ловила бы конфликт на каждой синхронизации.
+  action, not in the workflows that call it. Patches of main-repository files
+  that upstream reshuffles wholesale (src/lang/*) live here too: a direct edit
+  would hit a conflict on every sync.
 runs:
   using: composite
   steps:
@@ -22,10 +22,11 @@ runs:
           echo "::error file=$cfg::APP_NAME pattern not found, upstream changed the line; update this action"
           exit 1
         fi
-        # Без пробела: "ArmDesk" ломал парсинг аргументов cmd.exe в
-        # windows.rs (reg add/rename видели "Remote" отдельным токеном) -
-        # чинили кавычками, но проще и надёжнее убрать пробел у источника.
-        # -i.bak + rm работает и с GNU sed (Linux, Git Bash на Windows), и с BSD sed (macOS)
+        # No space in the name: a name with a space broke cmd.exe argument
+        # parsing in windows.rs (reg add/rename saw "Remote" as a separate
+        # token). Quoting fixed that, but dropping the space at the source is
+        # simpler and more robust.
+        # -i.bak + rm works with both GNU sed (Linux, Git Bash on Windows) and BSD sed (macOS)
         sed -i.bak 's/APP_NAME: RwLock<String> = RwLock::new("RustDesk"\.to_owned())/APP_NAME: RwLock<String> = RwLock::new("ArmDesk".to_owned())/' "$cfg"
         rm -f "$cfg.bak"
         grep -F 'APP_NAME: RwLock' "$cfg"
@@ -47,11 +48,12 @@ runs:
           echo "::error file=$cfg::RS_PUB_KEY pattern not found, upstream changed the line; update this action"
           exit 1
         fi
-        # Без этого клиент по умолчанию соединяется через публичный
-        # rs-ny.rustdesk.com (чужой сервер, платный трафик и чужая точка
-        # доверия), а UI показывает "настройте собственный сервер" - хотя
-        # свой ID/relay (hbbs/hbbr) у нас уже поднят. Значения те же, что
-        # даём вручную для официального iOS-клиента.
+        # Without this the client connects through the public
+        # rs-ny.rustdesk.com by default (someone else's server, paid traffic
+        # and someone else's point of trust), and the UI says "set up your own
+        # server" although our own ID/relay (hbbs/hbbr) is already running.
+        # The values are the same ones we give by hand for the official iOS
+        # client.
         sed -i.bak 's/RENDEZVOUS_SERVERS: &\[&str\] = &\["rs-ny\.rustdesk\.com"\]/RENDEZVOUS_SERVERS: \&[\&str] = \&["www.armilen.ru"]/' "$cfg"
         sed -i.bak 's#RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";#RS_PUB_KEY: \&str = "GYxvuB12rp2WdQoykP0y2Whrw9sD7hpPJkTlp8LS7C0=";#' "$cfg"
         rm -f "$cfg.bak"
@@ -71,9 +73,9 @@ runs:
           echo "::error file=$cfg::version-check URL pattern not found, upstream changed the line; update this action"
           exit 1
         fi
-        # Свой апдейт-чек: api.rustdesk.com/version/latest заменяем на наш
-        # эндпойнт, чтобы кастомные клиенты узнавали о новых сборках, а не
-        # молчали и не дёргали официальный апстрим.
+        # Our own update check: api.rustdesk.com/version/latest is replaced
+        # with our endpoint, so that custom clients learn about new builds
+        # instead of staying silent or querying the official upstream.
         sed -i.bak 's#const URL: &str = "https://api.rustdesk.com/version/latest";#const URL: \&str = "https://www.armilen.ru/api/version-check";#' "$cfg"
         rm -f "$cfg.bak"
         grep -F 'const URL: &str' "$cfg"
@@ -87,10 +89,10 @@ runs:
           echo "Branding already applied, skipping"
           exit 0
         fi
-        # Клиент и наша инструкция по настройке должны звать поля одинаково,
-        # иначе инструкция расходится с тем, что человек видит на экране.
-        # Апстримный перевод зовёт их «Сервер ID», «Ретранслятор», «Сервер API»,
-        # а ключ не переводит вовсе.
+        # The client and our setup guide must call the fields the same way,
+        # otherwise the guide disagrees with what a person sees on the screen.
+        # Upstream's translation calls them «Сервер ID», «Ретранслятор» and
+        # «Сервер API» and does not translate the key at all.
         for old in '("ID/Relay Server", "ID/Ретранслятор"),' '("ID Server", "Сервер ID"),' '("Relay Server", "Ретранслятор"),' '("API Server", "Сервер API"),'; do
           if ! grep -qF "$old" "$cfg"; then
             echo "::error file=$cfg::$old not found, upstream changed the translation; update this action"
@@ -102,8 +104,8 @@ runs:
         sed -i.bak 's#("Relay Server", "Ретранслятор")#("Relay Server", "Реле-сервер")#' "$cfg"
         sed -i.bak 's#("API Server", "Сервер API")#("API Server", "API-сервер")#' "$cfg"
         rm -f "$cfg.bak"
-        # Ключа в апстримном ru.rs нет, поэтому строку добавляем, а не правим.
-        # awk, а не sed: перенос строки в замене BSD sed на macOS не понимает
+        # Upstream's ru.rs has no such key, so the line is added, not edited.
+        # awk, not sed: BSD sed on macOS does not understand a newline in the replacement
         awk '{ print } /\("API Server", "API-сервер"\),/ { print "        (\"Key\", \"Ключ шифрования\")," }' "$cfg" > "$cfg.tmp"
         mv "$cfg.tmp" "$cfg"
         grep -F -e '("ID/Relay Server"' -e '("ID Server"' -e '("Relay Server"' -e '("API Server"' -e '("Key"' "$cfg"
@@ -117,15 +119,16 @@ runs:
           echo "Branding already applied, skipping"
           exit 0
         fi
-        # Личная книга не переименовывается из админки: сервер отдаёт её на лету
-        # (/api/ab/personal), а имя клиент берёт из своей константы
-        # _personalAddressBookName и показывает через translate(). То есть
-        # единственная точка, где её вообще можно назвать иначе, это перевод.
+        # The personal book cannot be renamed from the admin panel: the server
+        # serves it on the fly (/api/ab/personal), and the client takes the
+        # name from its own constant _personalAddressBookName and shows it
+        # through translate(). So the translation is the only place where it
+        # can be called anything else.
         #
-        # «Моя адресная книга» по смыслу совпадала с книгой, которую владелец
-        # заводит руками, и различить их на экране было нельзя. Книги под
-        # клиентов и филиалы называются именами клиентов, поэтому личной
-        # остаётся «Личные», а никакой «основной» не заводится.
+        # «Моя адресная книга» meant the same as a book the owner creates by
+        # hand, and the two could not be told apart on the screen. Books for
+        # clients and branches are named after the clients, so the personal
+        # one stays «Личные», and no "main" book is created at all.
         old='("My address book", "Моя адресная книга"),'
         if ! grep -qF "$old" "$cfg"; then
           echo "::error file=$cfg::$old not found, upstream changed the translation; update this action"
@@ -144,19 +147,19 @@ runs:
           echo "Branding already applied, skipping"
           exit 0
         fi
-        # Апстрим зовёт две реализации режима конфиденциальности «Режим 1» и
-        # «Режим 2». Выбрать между ними по таким названиям нельзя: они не
-        # говорят ни что произойдёт с экраном клиента, ни почему один из них
-        # может не заработать.
+        # Upstream calls the two implementations of privacy mode «Режим 1» and
+        # «Режим 2». Such names give nothing to choose by: they say neither
+        # what will happen to the client's screen nor why one of them may fail
+        # to start.
         #
-        # По сути: mag рисует чёрное окно поверх настоящего экрана через
-        # Magnification API (или WDA_EXCLUDEFROMCAPTURE), физический монитор
-        # включён и показывает черноту; virtual display создаёт виртуальный
-        # монитор, уводит сеанс на него, а физические отключает. Первый
-        # работает почти везде без установки, второй требует установленной
-        # службы и драйвера виртуального дисплея, поэтому в названии стоит
-        # именно требование: оно объясняет, почему пункта может не быть
-        # в меню или почему он не сработал.
+        # In essence: mag draws a black window over the real screen through
+        # the Magnification API (or WDA_EXCLUDEFROMCAPTURE), the physical
+        # monitor stays on and shows black; virtual display creates a virtual
+        # monitor, moves the session onto it and turns the physical ones off.
+        # The first works almost everywhere with nothing installed, the second
+        # needs the installed service and the virtual display driver, so the
+        # name states the requirement itself: it explains why the item may be
+        # missing from the menu or why it did not work.
         for old in '("privacy_mode_impl_mag_tip", "Режим 1"),' '("privacy_mode_impl_virtual_display_tip", "Режим 2"),'; do
           if ! grep -qF "$old" "$cfg"; then
             echo "::error file=$cfg::$old not found, upstream changed the translation; update this action"

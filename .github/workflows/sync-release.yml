@@ -1,16 +1,18 @@
 name: Release upstream sync
 
-# Выпуск новой версии апстрима без участия человека: когда сборка PR ветки
-# sync/upstream-* прошла на всех платформах и тесты зелёные, PR сливается в
-# master и стартует сборка выпуска. Дальше как при обычном пуше: релиз
-# v<версия>, сайт, обновление клиентов.
+# Releases a new upstream version with no human involved: when the PR build of
+# a sync/upstream-* branch has passed on every platform and the tests are
+# green, the PR is merged into master and the release build starts. From
+# there it goes as after an ordinary push: the v<version> release, the site,
+# the client update.
 #
-# Сливается только PR со строкой «auto-release: on» в описании, её ставит
-# scripts/sync-upstream. Слияние, разрешённое руками, выпускает тот, кто его
-# делал: зелёная сборка не говорит, верно ли разрешён конфликт.
+# Only a PR with the line "auto-release: on" in its description is merged;
+# scripts/sync-upstream puts it there. A merge resolved by hand is released by
+# whoever did it: a green build does not say whether the conflict was
+# resolved correctly.
 #
-# Упавшая сборка такого PR тоже приходит сюда: без сообщения новая версия
-# молча не вышла бы, и узнать об этом было бы неоткуда.
+# A failed build of such a PR comes here too: without a message the new
+# version would silently not come out, and there would be no way to learn of it.
 on:
   workflow_run:
     workflows: ["Full Flutter CI"]
@@ -18,7 +20,7 @@ on:
 
 jobs:
   release:
-    # head_repository: ветка с таким именем из чужого форка сюда не проходит
+    # head_repository: a branch with this name from someone else's fork does not get through
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
       contains(fromJSON('["success", "failure"]'), github.event.workflow_run.conclusion) &&
@@ -57,10 +59,10 @@ jobs:
             echo "::error::CI for $SHA is '$tests', not releasing"
             exit 1
           fi
-          # --match-head-commit: сливается ровно тот коммит, чья сборка прошла
+          # --match-head-commit: exactly the commit whose build passed is merged
           gh pr merge "$(jq -r .number <<<"$pr")" --repo "$GITHUB_REPOSITORY" \
             --merge --delete-branch --match-head-commit "$SHA"
-          # Пуш от GITHUB_TOKEN другие workflow не запускает
+          # A push made by GITHUB_TOKEN does not start other workflows
           gh workflow run flutter-nightly.yml --repo "$GITHUB_REPOSITORY" --ref "$BASE"
           echo "outcome=released" >> "$GITHUB_OUTPUT"
 

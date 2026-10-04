@@ -24,8 +24,8 @@ concurrency:
 
 jobs:
   update:
-    # Armilen: корневые сертификаты приходят со слиянием апстрима, свой
-    # еженедельный PR в форке разбирать некому.
+    # Armilen: root certificates come with the upstream merge, and there is
+    # nobody to go through a weekly PR of our own in the fork.
     if: github.repository == 'rustdesk/rustdesk'
     runs-on: ubuntu-latest
     permissions:

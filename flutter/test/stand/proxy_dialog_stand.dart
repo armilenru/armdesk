@@ -13,11 +13,13 @@
 // at a folder with segoeui.ttf, seguisb.ttf and segoeuib.ttf (under WSL that
 // is /mnt/c/Windows/Fonts, the default). Without them it is skipped.
 import 'dart:io';
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common/widgets/form_text_field.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
@@ -215,6 +217,116 @@ Widget variantAFilled(BuildContext context) => Column(
       ],
     );
 
+/// The dialog body as it is built now: [FormTextField].
+Widget after(BuildContext context, {bool filled = false}) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FormTextField(
+          key: const Key('f1'),
+          label: 'Сервер',
+          controller: TextEditingController(
+              text: filled ? 'socks5://proxy.example.ru:1080' : ''),
+          tip: 'Подсказка',
+          autofocus: filled,
+        ).marginOnly(bottom: 8),
+        FormTextField(
+          key: const Key('f2'),
+          label: 'Имя пользователя',
+          controller: TextEditingController(text: filled ? 'oleg' : ''),
+        ).marginOnly(bottom: 8),
+        FormTextField(
+          key: const Key('f3'),
+          label: 'Пароль',
+          controller: TextEditingController(text: filled ? 'secret123' : ''),
+          isPassword: true,
+          maxLength: 128,
+        ),
+      ],
+    );
+
+// Candidate for the theme pass, kept here until it is applied to every field.
+/// A rounded outline whose label rises inside the field.
+///
+/// With [OutlineInputBorder] a floating label climbs onto the border and cuts
+/// a gap in it. Reporting `isOutline == false` keeps the label inside, where
+/// the forms on www.armilen.ru keep theirs, while the field still gets a
+/// rounded frame and a rounded fill.
+class FieldBorder extends InputBorder {
+  const FieldBorder({
+    super.borderSide = const BorderSide(),
+    this.radius = 12,
+  });
+
+  final double radius;
+
+  @override
+  bool get isOutline => false;
+
+  @override
+  FieldBorder copyWith({BorderSide? borderSide, double? radius}) => FieldBorder(
+      borderSide: borderSide ?? this.borderSide, radius: radius ?? this.radius);
+
+  @override
+  EdgeInsetsGeometry get dimensions => EdgeInsets.all(borderSide.width);
+
+  @override
+  FieldBorder scale(double t) =>
+      FieldBorder(borderSide: borderSide.scale(t), radius: radius * t);
+
+  @override
+  ShapeBorder? lerpFrom(ShapeBorder? a, double t) => a is FieldBorder
+      ? FieldBorder(
+          borderSide: BorderSide.lerp(a.borderSide, borderSide, t),
+          radius: lerpDouble(a.radius, radius, t)!)
+      : super.lerpFrom(a, t);
+
+  @override
+  ShapeBorder? lerpTo(ShapeBorder? b, double t) => b is FieldBorder
+      ? FieldBorder(
+          borderSide: BorderSide.lerp(borderSide, b.borderSide, t),
+          radius: lerpDouble(radius, b.radius, t)!)
+      : super.lerpTo(b, t);
+
+  RRect _shape(Rect rect) =>
+      RRect.fromRectAndRadius(rect, Radius.circular(radius));
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRRect(_shape(rect).deflate(borderSide.width));
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
+      Path()..addRRect(_shape(rect));
+
+  @override
+  void paint(Canvas canvas, Rect rect,
+      {double? gapStart,
+      double gapExtent = 0.0,
+      double gapPercentage = 0.0,
+      TextDirection? textDirection}) {
+    if (borderSide.style == BorderStyle.none) return;
+    canvas.drawRRect(
+        _shape(rect).deflate(borderSide.width / 2), borderSide.toPaint());
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is FieldBorder &&
+      other.borderSide == borderSide &&
+      other.radius == radius;
+
+  @override
+  int get hashCode => Object.hash(borderSide, radius);
+}
+
+Widget afterInside(BuildContext context) => Theme(
+      data: Theme.of(context).copyWith(
+          inputDecorationTheme: Theme.of(context)
+              .inputDecorationTheme
+              .copyWith(border: const FieldBorder(), isDense: false)),
+      child: Builder(builder: (c) => after(c, filled: true)),
+    );
+
 Widget dialog(BuildContext context, Widget body) => AlertDialog(
       scrollable: true,
       title: const Text('SOCKS5/HTTP(S)-прокси'),
@@ -242,6 +354,9 @@ Widget dialog(BuildContext context, Widget body) => AlertDialog(
 void main() {
   final builders = <String, Widget Function(BuildContext)>{
     'before': before,
+    'after': (c) => after(c),
+    'after_filled': (c) => after(c, filled: true),
+    'after_inside': afterInside,
     'a': variantA,
     'b': variantB,
     'c': variantC,

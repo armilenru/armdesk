@@ -2,6 +2,7 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
+import 'package:flutter_hbb/common/widgets/form_text_field.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -1355,7 +1356,6 @@ void _rdpDialog(String id) async {
   final userController = TextEditingController(text: username);
   final passwordController = TextEditingController(
       text: await bind.mainGetPeerOption(id: id, key: 'rdp_password'));
-  RxBool secure = true.obs;
 
   gFFI.dialogManager.show((setState, close, context) {
     submit() async {
@@ -1378,79 +1378,26 @@ void _rdpDialog(String id) async {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                isDesktop
-                    ? ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 140),
-                        child: Text(
-                          "${translate('Port')}:",
-                          textAlign: TextAlign.right,
-                        ).marginOnly(right: 10))
-                    : SizedBox.shrink(),
-                Expanded(
-                  child: TextField(
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(
-                          r'^([0-9]|[1-9]\d|[1-9]\d{2}|[1-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$'))
-                    ],
-                    decoration: InputDecoration(
-                        labelText: isDesktop ? null : translate('Port'),
-                        hintText: '3389'),
-                    controller: portController,
-                    autofocus: true,
-                  ).workaroundFreezeLinuxMint(),
-                ),
+            FormTextField(
+              label: translate('Port'),
+              hintText: '3389',
+              controller: portController,
+              autofocus: true,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(
+                    r'^([0-9]|[1-9]\d|[1-9]\d{2}|[1-9]\d{3}|[1-5]\d{4}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])$'))
               ],
             ).marginOnly(bottom: isDesktop ? 8 : 0),
-            Obx(() => Row(
-                  children: [
-                    stateGlobal.isPortrait.isFalse
-                        ? ConstrainedBox(
-                            constraints: const BoxConstraints(minWidth: 140),
-                            child: Text(
-                              "${translate('Username')}:",
-                              textAlign: TextAlign.right,
-                            ).marginOnly(right: 10))
-                        : SizedBox.shrink(),
-                    Expanded(
-                      child: TextField(
-                        decoration: InputDecoration(
-                            labelText:
-                                isDesktop ? null : translate('Username')),
-                        controller: userController,
-                      ).workaroundFreezeLinuxMint(),
-                    ),
-                  ],
+            Obx(() => FormTextField(
+                  label: translate('Username'),
+                  controller: userController,
                 ).marginOnly(bottom: stateGlobal.isPortrait.isFalse ? 8 : 0)),
-            Obx(() => Row(
-                  children: [
-                    stateGlobal.isPortrait.isFalse
-                        ? ConstrainedBox(
-                            constraints: const BoxConstraints(minWidth: 140),
-                            child: Text(
-                              "${translate('Password')}:",
-                              textAlign: TextAlign.right,
-                            ).marginOnly(right: 10))
-                        : SizedBox.shrink(),
-                    Expanded(
-                      child: Obx(() => TextField(
-                            obscureText: secure.value,
-                            maxLength: maxLength,
-                            decoration: InputDecoration(
-                                labelText:
-                                    isDesktop ? null : translate('Password'),
-                                suffixIcon: IconButton(
-                                    onPressed: () =>
-                                        secure.value = !secure.value,
-                                    icon: Icon(secure.value
-                                        ? Icons.visibility_off
-                                        : Icons.visibility))),
-                            controller: passwordController,
-                          ).workaroundFreezeLinuxMint()),
-                    ),
-                  ],
-                ))
+            FormTextField(
+              label: translate('Password'),
+              controller: passwordController,
+              isPassword: true,
+              maxLength: maxLength,
+            ),
           ],
         ),
       ),

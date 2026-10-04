@@ -6,6 +6,7 @@ import 'package:dynamic_layouts/dynamic_layouts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/formatter/id_formatter.dart';
 import 'package:flutter_hbb/common/hbbs/hbbs.dart';
+import 'package:flutter_hbb/common/widgets/form_text_field.dart';
 import 'package:flutter_hbb/common/widgets/peer_card.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -462,7 +463,6 @@ class _AddressBookState extends State<AddressBook> {
       return;
     }
     var isInProgress = false;
-    var passwordVisible = false;
     IDTextEditingController idController = IDTextEditingController(text: '');
     TextEditingController aliasController = TextEditingController(text: '');
     TextEditingController passwordController = TextEditingController(text: '');
@@ -514,23 +514,11 @@ class _AddressBookState extends State<AddressBook> {
 
       double marginBottom = 4;
 
-      row({required Widget label, required Widget input}) {
-        makeChild(bool isPortrait) => Row(
-              children: [
-                !isPortrait
-                    ? ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 100),
-                        child: label.marginOnly(right: 10))
-                    : SizedBox.shrink(),
-                Expanded(
-                  child: ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 200),
-                      child: input),
-                ),
-              ],
-            ).marginOnly(bottom: !isPortrait ? 8 : 0);
-        return Obx(() => makeChild(stateGlobal.isPortrait.isTrue));
-      }
+      // Fields carry their labels inside. The column the labels used to stand
+      // in was only a minimum wide, so a longer one pushed its field out of
+      // line with the rest.
+      field(Widget input) => Obx(() => input.marginOnly(
+          bottom: stateGlobal.isPortrait.isTrue ? 0 : 8));
 
       return CustomAlertDialog(
         title: Text(translate("Add ID")),
@@ -539,90 +527,31 @@ class _AddressBookState extends State<AddressBook> {
           children: [
             Column(
               children: [
-                row(
-                    label: Row(
-                      children: [
-                        Text(
-                          '*',
-                          style: TextStyle(color: Colors.red, fontSize: 14),
-                        ),
-                        Text(
-                          'ID',
-                          style: style,
-                        ),
-                      ],
-                    ),
-                    input: Obx(() => TextField(
-                          controller: idController,
-                          inputFormatters: [IDTextInputFormatter()],
-                          decoration: InputDecoration(
-                              labelText: stateGlobal.isPortrait.isFalse
-                                  ? null
-                                  : translate('ID'),
-                              errorText: errorMsg,
-                              errorMaxLines: 5),
-                        ).workaroundFreezeLinuxMint())),
-                row(
-                  label: Text(
-                    translate('Alias'),
-                    style: style,
-                  ),
-                  input: Obx(() => TextField(
-                        controller: aliasController,
-                        decoration: InputDecoration(
-                          labelText: stateGlobal.isPortrait.isFalse
-                              ? null
-                              : translate('Alias'),
-                        ),
-                      ).workaroundFreezeLinuxMint()),
-                ),
+                field(FormTextField(
+                  label: translate('ID'),
+                  isRequired: true,
+                  controller: idController,
+                  inputFormatters: [IDTextInputFormatter()],
+                  errorText: errorMsg,
+                  errorMaxLines: 5,
+                )),
+                field(FormTextField(
+                  label: translate('Alias'),
+                  controller: aliasController,
+                )),
                 if (isCurrentAbShared)
-                  row(
-                      label: Text(
-                        translate('Password'),
-                        style: style,
-                      ),
-                      input: Obx(
-                        () => TextField(
-                          controller: passwordController,
-                          obscureText: !passwordVisible,
-                          decoration: InputDecoration(
-                            labelText: stateGlobal.isPortrait.isFalse
-                                ? null
-                                : translate('Password'),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                  passwordVisible
-                                      ? Icons.visibility
-                                      : Icons.visibility_off,
-                                  color: MyTheme.lightTheme.primaryColor),
-                              onPressed: () {
-                                setState(() {
-                                  passwordVisible = !passwordVisible;
-                                });
-                              },
-                            ),
-                          ),
-                        ).workaroundFreezeLinuxMint(),
-                      )),
-                row(
-                    label: Text(
-                      translate('Note'),
-                      style: style,
-                    ),
-                    input: Obx(
-                      () => TextField(
-                        controller: noteController,
-                        maxLines: 3,
-                        minLines: 1,
-                        maxLength: 300,
-                        decoration: InputDecoration(
-                          labelText: stateGlobal.isPortrait.isFalse
-                              ? null
-                              : translate('Note'),
-                        ),
-                      ).workaroundFreezeLinuxMint(),
-                    )),
+                  field(FormTextField(
+                    label: translate('Password'),
+                    controller: passwordController,
+                    isPassword: true,
+                  )),
+                field(FormTextField(
+                  label: translate('Note'),
+                  controller: noteController,
+                  minLines: 1,
+                  maxLines: 3,
+                  maxLength: 300,
+                )),
                 if (gFFI.abModel.currentAbTags.isNotEmpty)
                   Align(
                     alignment: Alignment.centerLeft,

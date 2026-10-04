@@ -62,17 +62,22 @@ Decided 2026-10-04: **the label lives inside the field.**
 - No label column. A column `minWidth` wide is a minimum, not a width: a longer
   label pushed its own field to the right, and a character counter under a
   field pulled that field's label off its centre line.
+- **The label rises inside the field, never onto its frame.** Empty, the field
+  shows the label where the text will go; with text or the focus, the label
+  sits small at the top of the field, as `.field-float` does on the site. The
+  desktop theme frames fields with an outline, and on an outline a label
+  climbs onto the frame, so every labelled field of the desktop takes
+  `border: MyTheme.insideLabelBorder` and
+  `contentPadding: MyTheme.insideLabelPadding`. On a phone both are null: its
+  underlined fields already keep the label inside.
+- A labelled field is 53 high, a field without a label 45; both keep the same
+  frame and radius. A field without a label is not touched.
 - A required field marks its label with a red asterisk.
 - A hint is an icon with a tooltip inside the field on the desktop and a line
   under the field on a phone.
 - Use `FormTextField` (`flutter/lib/common/widgets/form_text_field.dart`), or
   upstream's `DialogTextField` where the field never needs to be disabled.
 - Fields are 8 apart.
-
-Planned, not applied yet: the label rises inside the field, as `.field-float`
-does on the site, instead of onto its border. It needs a border that reports
-`isOutline == false` (`FieldBorder` in the stand) and changes every field of
-the client at once, so it waits for the stand to cover the other screens.
 
 ## Buttons
 
@@ -86,8 +91,8 @@ the client at once, so it waits for the stand to cover the other screens.
 
 ## Not decided yet
 
-- Field height and radius for the theme pass (a 53 px field takes radius 12 or
-  16 by the site's scale).
+- Field radius: fields keep 8, while the site's scale gives a 45 px control 12
+  and a 53 px one 16. Changing it touches every field of the client.
 - Motion: durations and curves have not been audited.
 - Icons: sizes and weights have not been audited.
 - macOS: the exact look can only be checked on a built client.

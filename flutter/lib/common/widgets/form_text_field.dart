@@ -106,6 +106,8 @@ class _FormTextFieldState extends State<FormTextField> {
         helperText: desktop ? null : tip,
         helperMaxLines: desktop ? null : 3,
         suffixIcon: suffix,
+        border: MyTheme.insideLabelBorder,
+        contentPadding: MyTheme.insideLabelPadding,
       ),
     ).workaroundFreezeLinuxMint();
   }

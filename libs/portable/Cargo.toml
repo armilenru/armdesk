@@ -1,6 +1,6 @@
 [package]
 name = "rustdesk-portable-packer"
-version = "1.5.0-2"
+version = "1.5.0-3"
 edition = "2021"
 description = "ARMILEN Remote"
 

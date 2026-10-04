@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 
 /// One text field of a dialog form, labelled inside the field.
@@ -18,7 +19,13 @@ class FormTextField extends StatefulWidget {
     required this.label,
     required this.controller,
     this.errorText,
+    this.errorMaxLines,
+    this.hintText,
     this.tip,
+    this.isRequired = false,
+    this.inputFormatters,
+    this.minLines,
+    this.maxLines = 1,
     this.enabled = true,
     this.autofocus = false,
     this.isPassword = false,
@@ -29,6 +36,14 @@ class FormTextField extends StatefulWidget {
   final String label;
   final TextEditingController controller;
   final String? errorText;
+  final int? errorMaxLines;
+  final String? hintText;
+
+  /// Marks the label with a red asterisk.
+  final bool isRequired;
+  final List<TextInputFormatter>? inputFormatters;
+  final int? minLines;
+  final int? maxLines;
 
   /// Shown under the field on a phone and behind a help icon on the desktop.
   final String? tip;
@@ -75,9 +90,19 @@ class _FormTextFieldState extends State<FormTextField> {
       autofocus: widget.autofocus,
       obscureText: _hidden,
       maxLength: widget.maxLength,
+      inputFormatters: widget.inputFormatters,
+      minLines: widget.minLines,
+      maxLines: widget.maxLines,
       decoration: InputDecoration(
-        labelText: widget.label,
+        labelText: widget.isRequired ? null : widget.label,
+        label: widget.isRequired
+            ? Text.rich(TextSpan(text: widget.label, children: const [
+                TextSpan(text: ' *', style: TextStyle(color: Colors.red))
+              ]))
+            : null,
+        hintText: widget.hintText,
         errorText: widget.errorText,
+        errorMaxLines: widget.errorMaxLines,
         helperText: desktop ? null : tip,
         helperMaxLines: desktop ? null : 3,
         suffixIcon: suffix,

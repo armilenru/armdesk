@@ -42,7 +42,7 @@ light and dark alike:
 | `titleLarge` | 19 | font's own | dialog titles |
 | `labelLarge` | 16 | font's own | button labels |
 | `bodyMedium` | 14 | 1.25 | body text |
-| `titleSmall` | 14 | font's own | list titles |
+| `titleSmall` | 14 | font's own | small titles |
 | `bodySmall` | 12 | 1.25 | captions, counters |
 
 Letter spacing is the font's own everywhere.
@@ -51,7 +51,7 @@ Letter spacing is the font's own everywhere.
 
 - Corner radius 18, a 1 px border, padding 24 on every side
   (`MyTheme.dialogPadding`).
-- Buttons stand at the bottom right, the secondary one first, 24 apart.
+- Buttons stand at the bottom right, the secondary one first, 12 apart.
 
 ## Forms
 

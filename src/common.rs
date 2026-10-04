@@ -61,8 +61,8 @@ pub const PLATFORM_ANDROID: &str = "Android";
 pub const TIMER_OUT: Duration = Duration::from_secs(1);
 pub(crate) const API_LOG_INTERVAL: Duration = Duration::from_secs(600);
 pub const DEFAULT_KEEP_ALIVE: i32 = 60_000;
-// Pro-сервер шлёт KeyExchange сразу после accept, то есть за один RTT.
-// Секунды хватает с запасом, а открытый hbbs не заставляет ждать READ_TIMEOUT.
+// A Pro server sends KeyExchange right after accept, that is within one RTT.
+// A second is more than enough, and an open hbbs does not make us wait for READ_TIMEOUT.
 const SECURE_TCP_TIMEOUT: u64 = 1_000;
 
 const MIN_VER_MULTI_UI_SESSION: &str = "1.2.4";
@@ -2218,22 +2218,24 @@ async fn key_exchange(conn: &mut Stream, key: &str, log_on_success: bool) -> Res
     Ok(false)
 }
 
-// Обмен ключами первым начинает только hbbs из rustdesk-server-pro. Открытый
-// rustdesk-server (наш hbbs) отвечает лишь на сообщения клиента и на голое
-// подключение молчит, поэтому обмен упирается в READ_TIMEOUT и валит сессию:
-// с залогиненным аккаунтом (token не пуст) не открывается ни одно исходящее
-// соединение. Даём серверу короткое окно и, если он молчит, продолжаем по
-// открытому каналу, как клиент делал до появления обмена ключами.
+// Only the hbbs from rustdesk-server-pro starts the key exchange first. The
+// open rustdesk-server (our hbbs) only answers the client's messages and stays
+// silent on a bare connection, so the exchange runs into READ_TIMEOUT and
+// brings the session down: with a logged-in account (a non-empty token) not a
+// single outgoing connection opens. We give the server a short window and, if
+// it is silent, go on over the open channel, as the client did before the key
+// exchange appeared.
 //
-// Апстримный secure_tcp из сборки убран намеренно, вместе с последними вызовами:
-// против нашего hbbs он не мог отработать ни разу. Если синхронизация с апстримом
-// принесёт новый вызов, сборка сломается на неизвестном имени, и место разберём
-// осознанно, вместо того чтобы снова выпустить клиент без исходящих соединений.
-// Под cfg(test) он оставлен ниже: его зовут тесты апстрима.
+// Upstream's secure_tcp is removed from the build on purpose, together with
+// its last calls: against our hbbs it could never succeed. If an upstream sync
+// brings a new call, the build breaks on an unknown name and we deal with that
+// place deliberately instead of shipping a client without outgoing connections
+// again. It is kept below under cfg(test): upstream's tests call it.
 //
-// Возвращает, зашифрован ли канал. Если нет, токен аккаунта и код смены сторон
-// в hbbs не шлём: открытый hbbs их не читает, а по открытому каналу их увидит
-// любой, кто слушает сеть. Токен даёт доступ к адресной книге.
+// Returns whether the channel is encrypted. If it is not, the account token
+// and the code for switching sides are not sent to hbbs: an open hbbs does not
+// read them, and on an open channel anyone listening to the network sees
+// them. The token gives access to the address book.
 pub async fn secure_tcp_optional(conn: &mut Stream, key: &str) -> bool {
     if use_ws() {
         return true;
@@ -2386,24 +2388,24 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
-// Значения по умолчанию для сборок ArmDesk.
+// Defaults for ArmDesk builds.
 //
-// Кладём их в DEFAULT_*-карты, которые Config::get_option просматривает
-// последними: OVERWRITE_* → выбор пользователя → DEFAULT_*. То есть это именно
-// «как будет, пока человек не решил иначе», а не запрет: любую из этих настроек
-// он меняет в интерфейсе, и его выбор перекрывает наш.
+// They go into the DEFAULT_* maps, which Config::get_option looks at last:
+// OVERWRITE_* → the user's choice → DEFAULT_*. So this is "how it is until
+// the person decides otherwise", not a ban: they change any of these settings
+// in the interface, and their choice overrides ours.
 //
-// Через тот же applier, что и штатный механизм кастомного клиента, а не своей
-// записью в карты: у него уже разобрано, какой ключ в какую из четырёх карт
-// ложится. Штатным путём воспользоваться нельзя, конфиг там проверяется
-// подписью на закрытом ключе RustDesk.
+// Through the same applier as the stock custom-client mechanism, not by
+// writing into the maps ourselves: it already knows which key goes into which
+// of the four maps. The stock path cannot be used, the config there is
+// verified by a signature made with RustDesk's private key.
 //
-// "Y"/"N", а не true/false: applier принимает только строки, а option2bool
-// трактует "Y" как включено для всех групп ключей, включая allow-* и
-// direct-server, где любое другое значение читается как выключено.
+// "Y"/"N", not true/false: the applier takes only strings, and option2bool
+// treats "Y" as enabled for every group of keys, including allow-* and
+// direct-server, where any other value reads as disabled.
 pub fn apply_armilen_default_settings() {
     let defaults = serde_json::json!({
-        // Наша сторона: как мы смотрим на чужой экран
+        // Our side: how we look at someone else's screen
         "view_style": "adaptive",
         "scroll_style": "scrollauto",
         "image_quality": "best",
@@ -2418,11 +2420,11 @@ pub fn apply_armilen_default_settings() {
         "enable-confirm-closing-tabs": "Y",
         "enable-open-new-connections-in-tabs": "Y",
         "use-texture-render": "Y",
-        // Кнопка блокировки ввода на удалённой стороне остаётся доступной:
-        // сеанс начинается с обычного управления, оператор блокирует руками
+        // The button that blocks input on the remote side stays available: a
+        // session starts with ordinary control, the operator blocks by hand
         "enable-block-input": "Y",
 
-        // Приложение целиком
+        // The application as a whole
         "theme": "system",
         "lang": "ru",
         "enable-abr": "Y",
@@ -2431,19 +2433,19 @@ pub fn apply_armilen_default_settings() {
         "allow-auto-update": "Y",
         "enable-check-update": "Y",
 
-        // Сторона, к которой подключаются: поведение машины клиента
+        // The side being connected to: how the client's machine behaves
         "verification-method": "use-both-passwords",
         "temporary-password-length": "8",
         "allow-numeric-one-time-password": "Y",
         "direct-server": "Y",
         "keep-awake-during-incoming-sessions": "Y",
         "keep-awake-during-outgoing-sessions": "Y",
-        // Оператор меняет настройки клиента прямо из сеанса, не прося
-        // человека открывать их самому
+        // The operator changes the client's settings right from the session
+        // without asking the person to open them
         "allow-remote-config-modification": "Y",
-        // approve-mode намеренно не задаём: пустое значение и означает «и по
-        // паролю, и по кнопке». "password" и "click" оставили бы только один
-        // способ
+        // approve-mode is deliberately not set: an empty value is what means
+        // "both by password and by click". "password" and "click" would leave
+        // only one way
     });
 
     let mut map_display_settings = HashMap::new();
@@ -2474,8 +2476,8 @@ pub fn apply_armilen_default_settings() {
 }
 
 pub fn load_custom_client() {
-    // Раньше подписанного конфига: если он когда-нибудь появится, его значения
-    // перезапишут наши, а не наоборот
+    // Before the signed config: if one ever appears, its values overwrite
+    // ours, not the other way round
     apply_armilen_default_settings();
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {

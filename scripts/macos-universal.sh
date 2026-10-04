@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Склеивает два собранных .app (x86_64 и arm64) в один универсальный.
+# Merges two built .app bundles (x86_64 and arm64) into one universal bundle.
 #
-# Зачем: Mac с 2020 года все на Apple Silicon, а x86_64-сборка идёт на них
-# через Rosetta 2, которую система предлагает доустановить при первом запуске.
-# Для инструмента поддержки лишний диалог возникает ровно в тот момент, когда у
-# человека уже что-то сломалось. Универсальный бинарник снимает и его, и вопрос
-# «а какую версию качать» на странице загрузки.
+# Why: every Mac since 2020 is Apple Silicon, and the x86_64 build runs on
+# them through Rosetta 2, which the system offers to install at first launch.
+# For a support tool that extra dialog appears at the very moment when
+# something has already broken for the person. A universal binary removes
+# both it and the question "which version do I download" on the download page.
 #
-# Как: у универсального бандла общие ресурсы и Info.plist, разной бывает только
-# машинная часть. Поэтому берём arm64-бандл за основу (у него новее
-# MACOSX_DEPLOYMENT_TARGET и включён ScreenCaptureKit), обходим его целиком и
-# каждый Mach-O файл заменяем результатом lipo с одноимённым файлом из
-# x86_64-бандла.
+# How: a universal bundle shares its resources and Info.plist, only the
+# machine code differs. So the arm64 bundle is taken as the base (it has a
+# newer MACOSX_DEPLOYMENT_TARGET and ScreenCaptureKit enabled), walked in
+# full, and every Mach-O file is replaced with the result of lipo with the
+# same-named file from the x86_64 bundle.
 #
-# Использование:
-#   scripts/macos-universal.sh <x86_64.app> <arm64.app> <выходной .app>
+# Usage:
+#   scripts/macos-universal.sh <x86_64.app> <arm64.app> <output .app>
 
 set -euo pipefail
 
@@ -32,15 +32,15 @@ for app in "$x64_app" "$arm_app"; do
 done
 
 rm -rf "$out_app"
-# -R сохраняет симлинки внутри фреймворков (Versions/Current -> A), без них
-# бандл перестаёт грузиться.
+# -R keeps the symlinks inside frameworks (Versions/Current -> A), without
+# them the bundle stops loading.
 cp -R "$arm_app" "$out_app"
 
 merged=0
 arm_only=0
 
-# -type f пропускает симлинки, их и не надо трогать: они уже скопированы как
-# симлинки и указывают на файлы, которые мы заменяем на месте.
+# -type f skips symlinks, and they need no touching: they are already copied
+# as symlinks and point to the files we replace in place.
 while IFS= read -r rel; do
 	out_file="$out_app/$rel"
 	x64_file="$x64_app/$rel"
@@ -48,9 +48,9 @@ while IFS= read -r rel; do
 	file -b "$out_file" | grep -q 'Mach-O' || continue
 
 	if [ ! -f "$x64_file" ]; then
-		# Бинарник есть только в arm64-сборке. Оставляем как есть: бандл
-		# запустится на Apple Silicon и не запустится на Intel, что лучше
-		# молчаливой поломки обоих.
+		# The binary exists only in the arm64 build. Left as is: the bundle will
+		# start on Apple Silicon and not on Intel, which is better than silently
+		# breaking both.
 		echo "  only in arm64, left as is: $rel"
 		arm_only=$((arm_only + 1))
 		continue
@@ -61,28 +61,28 @@ while IFS= read -r rel; do
 	merged=$((merged + 1))
 done < <(cd "$arm_app" && find . -type f | sed 's|^\./||')
 
-echo "склеено бинарников: $merged, только arm64: $arm_only"
-[ "$merged" -gt 0 ] || { echo "ни одного Mach-O не склеено, что-то не так со структурой бандла" >&2; exit 1; }
+echo "binaries merged: $merged, arm64 only: $arm_only"
+[ "$merged" -gt 0 ] || { echo "no Mach-O file was merged, something is wrong with the bundle layout" >&2; exit 1; }
 
-# lipo стирает подпись, а arm64-macOS отказывается запускать неподписанный код
-# вообще: без ad-hoc подписи универсальный бандл упадёт именно на тех машинах,
-# ради которых он собран. Подписываем изнутри наружу, --deep для ad-hoc
-# устарел и на вложенных фреймворках срабатывает не всегда.
+# lipo strips the signature, and arm64 macOS refuses to run unsigned code at
+# all: without an ad-hoc signature the universal bundle would crash on the
+# very machines it is built for. Signing goes from the inside out: --deep is
+# deprecated for ad-hoc and does not always work on nested frameworks.
 while IFS= read -r rel; do
 	f="$out_app/$rel"
 	file -b "$f" | grep -q 'Mach-O' && codesign --force --sign - "$f" >/dev/null 2>&1 || true
 done < <(cd "$out_app" && find . -type f | sed 's|^\./||')
 codesign --force --sign - "$out_app"
 
-# Проверка того, ради чего всё делалось.
+# A check of what it was all done for.
 main_bin="$out_app/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$out_app/Contents/Info.plist")"
 archs=$(lipo -archs "$main_bin")
-echo "архитектуры $main_bin: $archs"
+echo "architectures of $main_bin: $archs"
 for want in x86_64 arm64; do
 	case " $archs " in
 		*" $want "*) ;;
-		*) echo "в основном бинарнике нет среза $want" >&2; exit 1 ;;
+		*) echo "the main binary has no $want slice" >&2; exit 1 ;;
 	esac
 done
 codesign --verify --deep --strict "$out_app"
-echo "готов универсальный бандл: $out_app"
+echo "universal bundle ready: $out_app"

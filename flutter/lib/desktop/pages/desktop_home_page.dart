@@ -80,9 +80,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     final isOutgoingOnly = bind.isOutgoingOnly();
     final children = <Widget>[
       if (!isOutgoingOnly) buildPresetPasswordWarning(),
-      // Armilen: убраны ссылка "powered by" и логотип - занимали место в
-      // левой панели без пользы (не первое знакомство с приложением, а
-      // рабочий экран, где сотрудники и клиенты подключаются каждый день).
+      // Armilen: the "powered by" link and the logo are removed: they took up
+      // room in the left panel to no purpose (this is not a first meeting with
+      // the application but a working screen where staff and clients connect
+      // every day).
       buildTip(context),
       if (!isOutgoingOnly) buildIDBoard(context),
       if (!isOutgoingOnly) buildPasswordBoard(context),

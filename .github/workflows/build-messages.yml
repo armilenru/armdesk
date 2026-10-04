@@ -1,0 +1,30 @@
+name: Build messages
+
+# The local build scripts print in English and in Russian. The two sets of
+# messages have to stay the same: scripts/check-build-messages.mjs.
+on:
+  push:
+    branches: [master]
+    paths:
+      - "scripts/build-local.sh"
+      - "scripts/build-windows-local.ps1"
+      - "scripts/check-build-messages.mjs"
+      - ".github/workflows/build-messages.yml"
+  pull_request:
+    paths:
+      - "scripts/build-local.sh"
+      - "scripts/build-windows-local.ps1"
+      - "scripts/check-build-messages.mjs"
+      - ".github/workflows/build-messages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Both languages carry the same messages
+        run: node scripts/check-build-messages.mjs

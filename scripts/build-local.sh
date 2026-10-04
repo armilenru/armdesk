@@ -14,6 +14,9 @@
 #   ./scripts/build-local.sh --target android
 #   ./scripts/build-local.sh --target linux [--full]
 #
+# The output is in English, or in Russian on a Russian system.
+# ARMDESK_LANG=en|ru overrides the choice.
+#
 # About Windows. A Windows client cannot be built from WSL: Flutter builds the
 # Windows desktop through MSBuild and MSVC, and that pair has no
 # cross-compilation. So the windows target works differently from the others:
@@ -38,6 +41,191 @@ WORKFLOW=".github/workflows/flutter-build.yml"
 CACHE_DIR="${ARMILEN_BUILD_CACHE:-$HOME/.cache/armilen-remote-build}"
 WIN_SRC_DIR="${ARMILEN_WIN_SRC:-/mnt/c/dev/armilen-remote}"
 WIN_SRC_DIR_NATIVE='C:\dev\armilen-remote'
+
+# ── Messages ─────────────────────────────────────────────────────────────────
+# English by default, because the repository is public; Russian on a Russian
+# system. Each value is a printf format. Both tables carry the same keys with
+# the same placeholders: scripts/check-build-messages.mjs.
+declare -A MSG_EN=(
+	[unknown_arg]='Unknown argument: %s. See --help'
+	[no_target]='Pick a target: --target windows|android|linux. See --help'
+	[unknown_target]='Unknown target: %s. Available: windows, android, linux'
+	[error_label]='Error:'
+	[workflow_key_missing]='%s has no key %s'
+	[banner]='ArmDesk, local build (target: %s)'
+	[cache_line]='    Cache   %s'
+	[sudo_needed]='
+System packages need sudo, and sudo asks for a password that this session has
+no way to enter. Run this first:
+
+    sudo -v
+
+and then the same command right away: the password stays cached for a few minutes.'
+	[no_clang]='clang is missing: sudo apt-get install -y clang'
+	[no_libc_headers]='libc headers are missing: sudo apt-get install -y libc6-dev'
+	[bridge_present]='The bridge is in place, skipping'
+	[gh_needed]='gh is needed to download the bridge: https://cli.github.com'
+	[bridge_fetch]='Rust↔Dart bridge: the artifact of the last green CI build'
+	[bridge_no_run]='%s has no successful run, so there is nowhere to take the bridge from'
+	[bridge_download_failed]='artifact %s of run %s was not downloaded (artifacts are kept for a limited time)'
+	[bridge_from_run]='    from run %s'
+	[jdk_present]='JDK 17 is in place'
+	[ndk_missing]='NDK not found, run --deps first'
+	[branding]='Armilen branding'
+	[pyyaml_needed]='PyYAML is needed: sudo apt-get install -y python3-yaml'
+	[unnamed_step]='unnamed step'
+	[ps_bom_lost]="%s lost its UTF-8 BOM, and PowerShell 5.1 will read its Cyrillic as ANSI. To restore it: printf '\\\\xef\\\\xbb\\\\xbf' | cat - %s > tmp && mv tmp %s"
+	[sync_sources]='Syncing the sources to drive C:'
+	[rsync_needed]='rsync is needed: sudo apt-get install -y rsync'
+	[windows_deps_howto]='
+The next step needs your hand: the tools are installed on the Windows side and
+need administrator rights, so UAC has to ask you, not me.
+
+Open PowerShell as administrator and run this one line:
+
+    %s
+
+It installs Git, Python 3.12, Rustup, LLVM, CMake, NASM, Visual Studio 2022
+Build Tools with the C++ workload, Flutter %s, vcpkg and
+LLVM %s (bindgen is tied to the libclang version).
+About 15 GB and about an hour, once per machine.
+
+After that the build is started from here, with nothing more needed from you:
+
+    ./scripts/build-local.sh --target windows'
+	[sync_only]='Sync only, not starting the build'
+	[building_on_windows]='Building on the Windows side'
+	[windows_build_failed]='the Windows build failed'
+	[out_dir_missing]='the build finished, but %s does not exist'
+	[done]='Done'
+	[out_from_wsl]='    From WSL:     %s'
+	[out_from_windows]='    From Windows: %s'
+	[android_sdk]='Android SDK and NDK %s'
+	[ndk_branch_missing]='sdkmanager has no NDK %s.x line, which %s in the workflow calls for'
+	[vcpkg_android_deps]='vcpkg dependencies for Android (arm64-android, slow the first time)'
+	[android_deps_done]='Android dependencies installed'
+	[no_cargo_ndk]='cargo-ndk is missing, run --deps first'
+	[no_vcpkg_android]='vcpkg dependencies for arm64-android are missing, run --deps first'
+	[rust_core_android]='Rust core for aarch64 (ndk_arm64.sh, as on CI)'
+	[no_jdk]='JDK 17 is missing, run --deps first'
+	[no_apk]='Flutter produced no apk at %s'
+	[done_at]='Done: %s'
+	[apk_in_downloads]='    In Explorer this is Downloads; send it to the phone from there'
+	[system_packages]='System packages'
+	[linux_deps_done]='Linux dependencies installed'
+	[vcpkg_not_built]='vcpkg is not built, run --deps first'
+	[vcpkg_linux_deps]='vcpkg dependencies (x64-linux)'
+	[rust_core]='Rust core'
+	[core_built]='The core built: the edit compiles'
+	[full_app_hint]='    Full application: ./scripts/build-local.sh --target linux --full'
+	[flutter_app]='Flutter application'
+)
+declare -A MSG_RU=(
+	[unknown_arg]='Неизвестный аргумент: %s. Смотрите --help'
+	[no_target]='Укажите цель: --target windows|android|linux. Смотрите --help'
+	[unknown_target]='Неизвестная цель: %s. Доступны windows, android, linux'
+	[error_label]='Ошибка:'
+	[workflow_key_missing]='в %s не найден ключ %s'
+	[banner]='ArmDesk, локальная сборка (цель: %s)'
+	[cache_line]='    Кеш     %s'
+	[sudo_needed]='
+Для системных пакетов нужен sudo, а он просит пароль, и в этом сеансе
+ввести его некуда. Выполните сначала
+
+    sudo -v
+
+и сразу следом ту же команду: пароль закешируется на несколько минут.'
+	[no_clang]='нет clang: sudo apt-get install -y clang'
+	[no_libc_headers]='нет заголовков libc: sudo apt-get install -y libc6-dev'
+	[bridge_present]='Мост на месте, пропускаем'
+	[gh_needed]='нужен gh для загрузки моста: https://cli.github.com'
+	[bridge_fetch]='Мост Rust↔Dart: артефакт последней зелёной сборки CI'
+	[bridge_no_run]='у %s нет ни одного успешного прогона, мост брать неоткуда'
+	[bridge_download_failed]='не скачался артефакт %s прогона %s (артефакты живут ограниченное время)'
+	[bridge_from_run]='    из прогона %s'
+	[jdk_present]='JDK 17 на месте'
+	[ndk_missing]='NDK не найден, сначала --deps'
+	[branding]='Брендинг Armilen'
+	[pyyaml_needed]='нужен PyYAML: sudo apt-get install -y python3-yaml'
+	[unnamed_step]='шаг без имени'
+	[ps_bom_lost]="%s потерял UTF-8 BOM, PowerShell 5.1 прочитает кириллицу как ANSI. Вернуть: printf '\\\\xef\\\\xbb\\\\xbf' | cat - %s > tmp && mv tmp %s"
+	[sync_sources]='Синхронизация исходников на диск C:'
+	[rsync_needed]='нужен rsync: sudo apt-get install -y rsync'
+	[windows_deps_howto]='
+Дальше нужна ваша рука: инструменты ставятся на стороне Windows и требуют
+прав администратора, то есть UAC должен спросить вас, а не меня.
+
+Откройте PowerShell от имени администратора и выполните одну строку:
+
+    %s
+
+Ставится Git, Python 3.12, Rustup, LLVM, CMake, NASM, Visual Studio 2022
+Build Tools с рабочей нагрузкой C++, Flutter %s, vcpkg и
+LLVM %s (bindgen привязан к версии libclang).
+Порядка 15 ГБ и около часа, один раз на машину.
+
+После этого сборка запускается отсюда и уже без вас:
+
+    ./scripts/build-local.sh --target windows'
+	[sync_only]='Только синхронизация, сборку не запускаю'
+	[building_on_windows]='Сборка на стороне Windows'
+	[windows_build_failed]='сборка на Windows не прошла'
+	[out_dir_missing]='сборка отработала, но каталога %s нет'
+	[done]='Готово'
+	[out_from_wsl]='    Из WSL:     %s'
+	[out_from_windows]='    Из Windows: %s'
+	[android_sdk]='Android SDK и NDK %s'
+	[ndk_branch_missing]='в sdkmanager нет ветки NDK %s.x, ожидалась по %s из workflow'
+	[vcpkg_android_deps]='Зависимости vcpkg под Android (arm64-android, первый раз это долго)'
+	[android_deps_done]='Зависимости Android установлены'
+	[no_cargo_ndk]='нет cargo-ndk, сначала --deps'
+	[no_vcpkg_android]='нет зависимостей vcpkg под arm64-android, сначала --deps'
+	[rust_core_android]='Ядро Rust под aarch64 (ndk_arm64.sh, как на CI)'
+	[no_jdk]='нет JDK 17, сначала --deps'
+	[no_apk]='Flutter не отдал apk в %s'
+	[done_at]='Готово: %s'
+	[apk_in_downloads]='    В проводнике это Загрузки, оттуда закидывайте на телефон'
+	[system_packages]='Системные пакеты'
+	[linux_deps_done]='Зависимости Linux установлены'
+	[vcpkg_not_built]='vcpkg не собран, сначала --deps'
+	[vcpkg_linux_deps]='Зависимости vcpkg (x64-linux)'
+	[rust_core]='Ядро Rust'
+	[core_built]='Ядро собралось, правка компилируется'
+	[full_app_hint]='    Полное приложение: ./scripts/build-local.sh --target linux --full'
+	[flutter_app]='Приложение Flutter'
+)
+
+# ARMDESK_LANG=ru|en decides; otherwise the locale does. WSL usually has none of
+# its own (C.UTF-8), so there the language of the Windows host is asked.
+ui_lang() {
+	case "${ARMDESK_LANG:-}" in
+	ru | en)
+		printf '%s' "$ARMDESK_LANG"
+		return
+		;;
+	esac
+	case "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" in
+	ru*)
+		printf ru
+		return
+		;;
+	esac
+	if command -v powershell.exe >/dev/null 2>&1 &&
+		[ "$(powershell.exe -NoProfile -Command '(Get-UICulture).TwoLetterISOLanguageName' 2>/dev/null | tr -d '\r\n')" = ru ]; then
+		printf ru
+		return
+	fi
+	printf en
+}
+UI_LANG="$(ui_lang)"
+
+msg() {
+	local key="$1" format
+	shift
+	if [ "$UI_LANG" = ru ]; then format="${MSG_RU[$key]}"; else format="${MSG_EN[$key]}"; fi
+	# shellcheck disable=SC2059  # the table value is the format
+	printf "$format" "$@"
+}
 
 TARGET=""
 DEPS=0
@@ -67,7 +255,7 @@ while [ $# -gt 0 ]; do
 		exit 0
 		;;
 	*)
-		echo "Неизвестный аргумент: $1. Смотрите --help" >&2
+		echo "$(msg unknown_arg "$1")" >&2
 		exit 1
 		;;
 	esac
@@ -76,18 +264,18 @@ done
 case "$TARGET" in
 windows | android | linux) ;;
 "")
-	echo "Укажите цель: --target windows|android|linux. Смотрите --help" >&2
+	echo "$(msg no_target)" >&2
 	exit 1
 	;;
 *)
-	echo "Неизвестная цель: $TARGET. Доступны windows, android, linux" >&2
+	echo "$(msg unknown_target "$TARGET")" >&2
 	exit 1
 	;;
 esac
 
 log() { printf '\n\033[1;32m==>\033[0m %s\n' "$*"; }
 die() {
-	printf '\n\033[1;31mОшибка:\033[0m %s\n' "$*" >&2
+	printf '\n\033[1;31m%s\033[0m %s\n' "$(msg error_label)" "$*" >&2
 	exit 1
 }
 
@@ -95,7 +283,7 @@ die() {
 workflow_env() {
 	local key="$1" file="${2:-$WORKFLOW}" value
 	value="$(grep -m1 -E "^  ${key}: " "$file" | sed -E 's/^[^:]+: *"?([^"#]*[^"# ])"? *(#.*)?$/\1/')"
-	[ -n "$value" ] || die "в $file не найден ключ $key"
+	[ -n "$value" ] || die "$(msg workflow_key_missing "$file" "$key")"
 	printf '%s' "$value"
 }
 
@@ -125,23 +313,15 @@ fi
 export FLUTTER_ROOT
 export PATH="$FLUTTER_ROOT/bin:$CARGO_HOME/bin:$PATH"
 
-log "ArmDesk, локальная сборка (цель: $TARGET)"
+log "$(msg banner "$TARGET")"
 echo "    Rust    $RUST_VERSION"
-echo "    Кеш     $CACHE_DIR"
+echo "$(msg cache_line "$CACHE_DIR")"
 
 # ── Shared helpers ───────────────────────────────────────────────────────────
 
 require_sudo() {
 	sudo -n true 2>/dev/null && return 0
-	cat >&2 <<-EOF
-
-		Для системных пакетов нужен sudo, а он просит пароль, и в этом сеансе
-		ввести его некуда. Выполните сначала
-
-		    sudo -v
-
-		и сразу следом ту же команду: пароль закешируется на несколько минут.
-	EOF
+	echo "$(msg sudo_needed)" >&2
 	exit 1
 }
 
@@ -180,8 +360,8 @@ install_vcpkg() {
 # /usr/include/stdint.h with "'bits/libc-header-start.h' file not found", and
 # the message gives no hint that a package is missing.
 require_host_cc() {
-	command -v clang >/dev/null 2>&1 || die "нет clang: sudo apt-get install -y clang"
-	[ -f /usr/include/stdint.h ] || die "нет заголовков libc: sudo apt-get install -y libc6-dev"
+	command -v clang >/dev/null 2>&1 || die "$(msg no_clang)"
+	[ -f /usr/include/stdint.h ] || die "$(msg no_libc_headers)"
 }
 
 # The Rust↔Dart bridge is not in the repository: `src/bridge_generated.rs` is
@@ -203,24 +383,24 @@ BRIDGE_ARTIFACT="bridge-artifact"
 
 restore_bridge() {
 	if [ -f "src/bridge_generated.rs" ] && [ -f "flutter/lib/generated_bridge.freezed.dart" ]; then
-		log "Мост на месте, пропускаем"
+		log "$(msg bridge_present)"
 		return
 	fi
-	command -v gh >/dev/null 2>&1 || die "нужен gh для загрузки моста: https://cli.github.com"
+	command -v gh >/dev/null 2>&1 || die "$(msg gh_needed)"
 
-	log "Мост Rust↔Dart: артефакт последней зелёной сборки CI"
+	log "$(msg bridge_fetch)"
 	local run_id
 	run_id="$(gh run list --workflow="$BRIDGE_WORKFLOW" --status success --limit 1 --json databaseId -q '.[0].databaseId')"
-	[ -n "$run_id" ] || die "у $BRIDGE_WORKFLOW нет ни одного успешного прогона, мост брать неоткуда"
+	[ -n "$run_id" ] || die "$(msg bridge_no_run "$BRIDGE_WORKFLOW")"
 
 	local dest="$CACHE_DIR/bridge/$run_id"
 	if [ ! -d "$dest" ]; then
 		mkdir -p "$dest"
 		gh run download "$run_id" -n "$BRIDGE_ARTIFACT" -D "$dest" ||
-			die "не скачался артефакт $BRIDGE_ARTIFACT прогона $run_id (артефакты живут ограниченное время)"
+			die "$(msg bridge_download_failed "$BRIDGE_ARTIFACT" "$run_id")"
 	fi
 	cp -a "$dest/." "$REPO_ROOT/"
-	echo "    из прогона $run_id"
+	echo "$(msg bridge_from_run "$run_id")"
 }
 
 # The Android project's Gradle runs on Java 17: the CI job sets
@@ -232,7 +412,7 @@ JDK_DIR="$CACHE_DIR/jdk-17"
 
 install_jdk17() {
 	if [ -x "$JDK_DIR/bin/java" ]; then
-		log "JDK 17 на месте"
+		log "$(msg jdk_present)"
 		return
 	fi
 	log "JDK 17 (Temurin)"
@@ -245,7 +425,7 @@ install_jdk17() {
 android_ndk_dir() {
 	local dir
 	dir="$(find "$ANDROID_SDK_ROOT/ndk" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort -V | tail -1)"
-	[ -n "$dir" ] || die "NDK не найден, сначала --deps"
+	[ -n "$dir" ] || die "$(msg ndk_missing)"
 	printf '%s' "$dir"
 }
 
@@ -253,16 +433,16 @@ android_ndk_dir() {
 # of the submodules. The same steps are run here, not a copy written
 # alongside: a build with branding different from CI's would check nothing.
 apply_branding() {
-	log "Брендинг Armilen"
-	python3 -c 'import yaml' 2>/dev/null || die "нужен PyYAML: sudo apt-get install -y python3-yaml"
+	log "$(msg branding)"
+	python3 -c 'import yaml' 2>/dev/null || die "$(msg pyyaml_needed)"
 
 	# The steps are passed as "name\0body\0": the bodies are multi-line and
 	# cannot be split by newline
 	while IFS= read -r -d '' name && IFS= read -r -d '' script; do
 		echo "  · $name"
 		bash -c "$script"
-	done < <(python3 -c '
-import sys, yaml
+	done < <(UNNAMED_STEP="$(msg unnamed_step)" python3 -c '
+import os, sys, yaml
 
 with open(".github/actions/apply-branding/action.yml") as f:
     action = yaml.safe_load(f)
@@ -270,7 +450,7 @@ with open(".github/actions/apply-branding/action.yml") as f:
 for step in action["runs"]["steps"]:
     if not step.get("run"):
         continue
-    sys.stdout.write(step.get("name", "шаг без имени") + "\0" + step["run"] + "\0")
+    sys.stdout.write(step.get("name", os.environ["UNNAMED_STEP"]) + "\0" + step["run"] + "\0")
 ')
 }
 
@@ -283,13 +463,13 @@ for step in action["runs"]["steps"]:
 assert_ps_bom() {
 	local ps="scripts/build-windows-local.ps1"
 	[ "$(head -c 3 "$ps" | xxd -p)" = "efbbbf" ] ||
-		die "$ps потерял UTF-8 BOM, PowerShell 5.1 прочитает кириллицу как ANSI. Вернуть: printf '\\\\xef\\\\xbb\\\\xbf' | cat - $ps > tmp && mv tmp $ps"
+		die "$(msg ps_bom_lost "$ps" "$ps" "$ps")"
 }
 
 sync_to_windows() {
 	assert_ps_bom
-	log "Синхронизация исходников на диск C:"
-	command -v rsync >/dev/null 2>&1 || die "нужен rsync: sudo apt-get install -y rsync"
+	log "$(msg sync_sources)"
+	command -v rsync >/dev/null 2>&1 || die "$(msg rsync_needed)"
 	mkdir -p "$WIN_SRC_DIR"
 	# target/ and flutter/build/ stay on the Windows side: they are its
 	# artifacts, and dragging them through 9p would kill incrementality every time.
@@ -320,24 +500,9 @@ windows_deps() {
 	apply_branding
 	restore_bridge
 	sync_to_windows
-	cat <<-EOF
-
-		Дальше нужна ваша рука: инструменты ставятся на стороне Windows и требуют
-		прав администратора, то есть UAC должен спросить вас, а не меня.
-
-		Откройте PowerShell от имени администратора и выполните одну строку:
-
-		    powershell -ExecutionPolicy Bypass -File "${WIN_SRC_DIR_NATIVE}\\scripts\\build-windows-local.ps1" -Deps
-
-		Ставится Git, Python 3.12, Rustup, LLVM, CMake, NASM, Visual Studio 2022
-		Build Tools с рабочей нагрузкой C++, Flutter ${FLUTTER_VERSION}, vcpkg и
-		LLVM ${WIN_LLVM_VERSION} (bindgen привязан к версии libclang).
-		Порядка 15 ГБ и около часа, один раз на машину.
-
-		После этого сборка запускается отсюда и уже без вас:
-
-		    ./scripts/build-local.sh --target windows
-	EOF
+	echo "$(msg windows_deps_howto \
+		"powershell -ExecutionPolicy Bypass -File \"${WIN_SRC_DIR_NATIVE}\\scripts\\build-windows-local.ps1\" -Deps" \
+		"$FLUTTER_VERSION" "$WIN_LLVM_VERSION")"
 }
 
 build_windows() {
@@ -345,24 +510,25 @@ build_windows() {
 	restore_bridge
 	sync_to_windows
 	[ "$SYNC_ONLY" -eq 0 ] || {
-		log "Только синхронизация, сборку не запускаю"
+		log "$(msg sync_only)"
 		return
 	}
 
-	log "Сборка на стороне Windows"
+	log "$(msg building_on_windows)"
 	powershell.exe -NoProfile -ExecutionPolicy Bypass \
 		-File "${WIN_SRC_DIR_NATIVE}\\scripts\\build-windows-local.ps1" \
 		-FlutterVersion "$FLUTTER_VERSION" \
 		-RustVersion "$RUST_VERSION" \
 		-VcpkgCommitId "$VCPKG_COMMIT_ID" \
-		-LlvmVersion "$WIN_LLVM_VERSION" ||
-		die "сборка на Windows не прошла"
+		-LlvmVersion "$WIN_LLVM_VERSION" \
+		-Lang "$UI_LANG" ||
+		die "$(msg windows_build_failed)"
 
 	local out="$WIN_SRC_DIR/flutter/build/windows/x64/runner/Release"
-	[ -d "$out" ] || die "сборка отработала, но каталога $out нет"
-	log "Готово"
-	echo "    Из WSL:     $out"
-	echo "    Из Windows: ${WIN_SRC_DIR_NATIVE}\\flutter\\build\\windows\\x64\\runner\\Release\\rustdesk.exe"
+	[ -d "$out" ] || die "$(msg out_dir_missing "$out")"
+	log "$(msg done)"
+	echo "$(msg out_from_wsl "$out")"
+	echo "$(msg out_from_windows "${WIN_SRC_DIR_NATIVE}\\flutter\\build\\windows\\x64\\runner\\Release\\rustdesk.exe")"
 }
 
 # ── Android ──────────────────────────────────────────────────────────────────
@@ -376,7 +542,7 @@ android_deps() {
 	rustup target add aarch64-linux-android
 	install_flutter "$ANDROID_FLUTTER_VERSION" "$FLUTTER_ROOT"
 
-	log "Android SDK и NDK $NDK_VERSION"
+	log "$(msg android_sdk "$NDK_VERSION")"
 	local tools_dir="$ANDROID_SDK_ROOT/cmdline-tools"
 	if [ ! -d "$tools_dir/latest" ]; then
 		mkdir -p "$tools_dir"
@@ -395,7 +561,7 @@ android_deps() {
 	ndk_major="${ndk_major%%[a-z]*}"
 	local ndk_pkg
 	ndk_pkg="$("$sdkmanager" --list 2>/dev/null | grep -oE "ndk;${ndk_major}\.[0-9.]+" | sort -V | tail -1)" || true
-	[ -n "$ndk_pkg" ] || die "в sdkmanager нет ветки NDK ${ndk_major}.x, ожидалась по $NDK_VERSION из workflow"
+	[ -n "$ndk_pkg" ] || die "$(msg ndk_branch_missing "$ndk_major" "$NDK_VERSION")"
 
 	yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
 	"$sdkmanager" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" "$ndk_pkg"
@@ -407,19 +573,19 @@ android_deps() {
 	# build.rs fails on `VCPKG_ROOT` with a terse `NotPresent`. The triplet is
 	# built by the same script as on CI, not by our own copy of the vcpkg command
 	install_vcpkg
-	log "Зависимости vcpkg под Android (arm64-android, первый раз это долго)"
+	log "$(msg vcpkg_android_deps)"
 	ANDROID_NDK_HOME="$(android_ndk_dir)" ANDROID_NDK_ROOT="$(android_ndk_dir)" \
 		./flutter/build_android_deps.sh arm64-v8a
 
-	log "Зависимости Android установлены"
+	log "$(msg android_deps_done)"
 }
 
 build_android() {
 	apply_branding
 	restore_bridge
 	require_host_cc
-	command -v cargo-ndk >/dev/null 2>&1 || die "нет cargo-ndk, сначала --deps"
-	[ -d "$VCPKG_ROOT/installed/arm64-android" ] || die "нет зависимостей vcpkg под arm64-android, сначала --deps"
+	command -v cargo-ndk >/dev/null 2>&1 || die "$(msg no_cargo_ndk)"
+	[ -d "$VCPKG_ROOT/installed/arm64-android" ] || die "$(msg no_vcpkg_android)"
 
 	local ndk
 	ndk="$(android_ndk_dir)"
@@ -433,7 +599,7 @@ build_android() {
 	# removes the ambiguity and does not get in the way of older clang
 	export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
 
-	log "Ядро Rust под aarch64 (ndk_arm64.sh, как на CI)"
+	log "$(msg rust_core_android)"
 	./flutter/ndk_arm64.sh
 
 	local jni="flutter/android/app/src/main/jniLibs/arm64-v8a"
@@ -448,13 +614,13 @@ build_android() {
 	sed -i "s/org.gradle.jvmargs=-Xmx1024M/org.gradle.jvmargs=-Xmx2g/g" ./flutter/android/gradle.properties
 
 	log "APK (Java 17)"
-	[ -x "$JDK_DIR/bin/java" ] || die "нет JDK 17, сначала --deps"
+	[ -x "$JDK_DIR/bin/java" ] || die "$(msg no_jdk)"
 	(cd flutter && JAVA_HOME="$JDK_DIR" PATH="$JDK_DIR/bin:$PATH" \
 		flutter build apk --release --target-platform android-arm64 --split-per-abi)
 	git checkout -- ./flutter/android/app/build.gradle ./flutter/android/gradle.properties
 
 	local apk="flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
-	[ -f "$apk" ] || die "Flutter не отдал apk в $apk"
+	[ -f "$apk" ] || die "$(msg no_apk "$apk")"
 
 	# A file cannot be sent to the phone from WSL, so a copy is put into the
 	# Windows Downloads folder, where Explorer can see it
@@ -463,10 +629,10 @@ build_android() {
 	drop="/mnt/c/Users/$user/Downloads"
 	if [ -n "$user" ] && [ -d "$drop" ]; then
 		cp "$apk" "$drop/armilen-remote-arm64.apk"
-		log "Готово: $drop/armilen-remote-arm64.apk"
-		echo "    В проводнике это Загрузки, оттуда закидывайте на телефон"
+		log "$(msg done_at "$drop/armilen-remote-arm64.apk")"
+		echo "$(msg apk_in_downloads)"
 	else
-		log "Готово: $REPO_ROOT/$apk"
+		log "$(msg done_at "$REPO_ROOT/$apk")"
 	fi
 }
 
@@ -474,7 +640,7 @@ build_android() {
 
 linux_deps() {
 	require_sudo
-	log "Системные пакеты"
+	log "$(msg system_packages)"
 	sudo apt-get update -y
 	sudo apt-get install -y \
 		build-essential clang cmake curl gcc git g++ \
@@ -495,29 +661,29 @@ linux_deps() {
 
 	install_vcpkg
 
-	log "Зависимости Linux установлены"
+	log "$(msg linux_deps_done)"
 }
 
 build_linux() {
 	apply_branding
 	restore_bridge
 
-	[ -x "$VCPKG_ROOT/vcpkg" ] || die "vcpkg не собран, сначала --deps"
-	log "Зависимости vcpkg (x64-linux)"
+	[ -x "$VCPKG_ROOT/vcpkg" ] || die "$(msg vcpkg_not_built)"
+	log "$(msg vcpkg_linux_deps)"
 	"$VCPKG_ROOT/vcpkg" install --triplet x64-linux --x-install-root="$VCPKG_ROOT/installed"
 
-	log "Ядро Rust"
+	log "$(msg rust_core)"
 	cargo +"$RUST_VERSION" build --lib --features hwcodec,flutter,unix-file-copy-paste --release
 
 	if [ "$FULL" -eq 0 ]; then
-		log "Ядро собралось, правка компилируется"
-		echo "    Полное приложение: ./scripts/build-local.sh --target linux --full"
+		log "$(msg core_built)"
+		echo "$(msg full_app_hint)"
 		return
 	fi
 
-	log "Приложение Flutter"
+	log "$(msg flutter_app)"
 	(cd flutter && flutter build linux --release)
-	log "Готово: $REPO_ROOT/flutter/build/linux/x64/release/bundle"
+	log "$(msg done_at "$REPO_ROOT/flutter/build/linux/x64/release/bundle")"
 }
 
 # ── Dispatcher ───────────────────────────────────────────────────────────────

@@ -323,6 +323,18 @@ class MyTheme {
     );
   }
 
+  // Segoe UI sets its capitals 0.88 px below the middle of the line box, so
+  // text centred by that box sits low in a button. Two pixels more padding at
+  // the bottom than at the top lift it by one, a whole pixel so the glyphs
+  // stay sharp. The desktop's compact density takes 8 px off every side, hence
+  // 8 and 10 for what ends up as 0 and 2. Roboto (Linux, Android) is within a
+  // quarter of a pixel and gets nothing; the macOS font has not been measured.
+  // test/stand/buttons_stand.dart.
+  static EdgeInsetsGeometry? buttonPaddingFor({required bool windows}) =>
+      windows ? const EdgeInsets.fromLTRB(16, 8, 16, 10) : null;
+  static EdgeInsetsGeometry? get buttonPadding =>
+      buttonPaddingFor(windows: isWindows);
+
   // Dialogs
   static const double dialogPadding = 24;
 
@@ -440,6 +452,7 @@ class MyTheme {
         : mobileTextButtonTheme,
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
+        padding: buttonPadding,
         backgroundColor: MyTheme.accent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
@@ -448,6 +461,7 @@ class MyTheme {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        padding: buttonPadding,
         backgroundColor: grayBg,
         foregroundColor: Colors.black87,
         shape: RoundedRectangleBorder(
@@ -543,6 +557,7 @@ class MyTheme {
         : mobileTextButtonTheme,
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
+        padding: buttonPadding,
         backgroundColor: MyTheme.accent,
         foregroundColor: Colors.white,
         disabledForegroundColor: Colors.white70,
@@ -554,6 +569,7 @@ class MyTheme {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        padding: buttonPadding,
         backgroundColor: Color(0xFF24252B),
         side: BorderSide(color: Colors.white12, width: 0.5),
         disabledForegroundColor: Colors.white70,

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
+import 'package:flutter_hbb/common/widgets/form_text_field.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
@@ -3130,7 +3131,6 @@ void changeSocks5Proxy() async {
   var proxyController = TextEditingController(text: proxy);
   var userController = TextEditingController(text: username);
   var pwdController = TextEditingController(text: password);
-  RxBool obscure = true.obs;
 
   // proxy settings
   // The following option is a not real key, it is just used for custom client advanced settings.
@@ -3180,95 +3180,25 @@ void changeSocks5Proxy() async {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                if (!isMobile)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 140),
-                    child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Row(
-                          children: [
-                            Text(
-                              translate('Server'),
-                            ).marginOnly(right: 4),
-                            Tooltip(
-                              waitDuration: Duration(milliseconds: 0),
-                              message: translate("default_proxy_tip"),
-                              child: Icon(
-                                Icons.help_outline_outlined,
-                                size: 16,
-                                color: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.color
-                                    ?.withOpacity(0.5),
-                              ),
-                            ),
-                          ],
-                        )).marginOnly(right: 10),
-                  ),
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      errorText: proxyMsg.isNotEmpty ? proxyMsg : null,
-                      labelText: isMobile ? translate('Server') : null,
-                      helperText:
-                          isMobile ? translate("default_proxy_tip") : null,
-                      helperMaxLines: isMobile ? 3 : null,
-                    ),
-                    controller: proxyController,
-                    autofocus: true,
-                    enabled: !isOptFixed,
-                  ).workaroundFreezeLinuxMint(),
-                ),
-              ],
+            FormTextField(
+              label: translate('Server'),
+              controller: proxyController,
+              errorText: proxyMsg.isNotEmpty ? proxyMsg : null,
+              tip: translate("default_proxy_tip"),
+              autofocus: true,
+              enabled: !isOptFixed,
             ).marginOnly(bottom: 8),
-            Row(
-              children: [
-                if (!isMobile)
-                  ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 140),
-                      child: Text(
-                        '${translate("Username")}:',
-                        textAlign: TextAlign.right,
-                      ).marginOnly(right: 10)),
-                Expanded(
-                  child: TextField(
-                    controller: userController,
-                    decoration: InputDecoration(
-                      labelText: isMobile ? translate('Username') : null,
-                    ),
-                    enabled: !isOptFixed,
-                  ).workaroundFreezeLinuxMint(),
-                ),
-              ],
+            FormTextField(
+              label: translate('Username'),
+              controller: userController,
+              enabled: !isOptFixed,
             ).marginOnly(bottom: 8),
-            Row(
-              children: [
-                if (!isMobile)
-                  ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 140),
-                      child: Text(
-                        '${translate("Password")}:',
-                        textAlign: TextAlign.right,
-                      ).marginOnly(right: 10)),
-                Expanded(
-                  child: Obx(() => TextField(
-                        obscureText: obscure.value,
-                        decoration: InputDecoration(
-                            labelText: isMobile ? translate('Password') : null,
-                            suffixIcon: IconButton(
-                                onPressed: () => obscure.value = !obscure.value,
-                                icon: Icon(obscure.value
-                                    ? Icons.visibility_off
-                                    : Icons.visibility))),
-                        controller: pwdController,
-                        enabled: !isOptFixed,
-                        maxLength: bind.mainMaxEncryptLen(),
-                      ).workaroundFreezeLinuxMint()),
-                ),
-              ],
+            FormTextField(
+              label: translate('Password'),
+              controller: pwdController,
+              enabled: !isOptFixed,
+              isPassword: true,
+              maxLength: bind.mainMaxEncryptLen(),
             ),
             // NOT use Offstage to wrap LinearProgressIndicator
             if (isInProgress)

@@ -85,7 +85,7 @@ Open PowerShell as administrator and run this one line:
 
     %s
 
-It installs Git, Python 3.12, Rustup, LLVM, CMake, NASM, Visual Studio 2022
+It installs Git, Python 3.12, Rustup, CMake, NASM, Visual Studio 2022
 Build Tools with the C++ workload, Flutter %s, vcpkg and
 LLVM %s (bindgen is tied to the libclang version).
 About 15 GB and about an hour, once per machine.
@@ -159,7 +159,7 @@ declare -A MSG_RU=(
 
     %s
 
-Ставится Git, Python 3.12, Rustup, LLVM, CMake, NASM, Visual Studio 2022
+Ставится Git, Python 3.12, Rustup, CMake, NASM, Visual Studio 2022
 Build Tools с рабочей нагрузкой C++, Flutter %s, vcpkg и
 LLVM %s (bindgen привязан к версии libclang).
 Порядка 15 ГБ и около часа, один раз на машину.

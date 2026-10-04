@@ -1070,7 +1070,10 @@ Future<bool?> verificationCodeDialog(
                 offstage: !isEmailVerification || user?.email == null,
                 child: TextField(
                   decoration: InputDecoration(
-                      labelText: "Email", prefixIcon: Icon(Icons.email)),
+                      labelText: "Email",
+                      prefixIcon: Icon(Icons.email),
+                      border: MyTheme.insideLabelBorder,
+                      contentPadding: MyTheme.insideLabelPadding),
                   readOnly: true,
                   controller: TextEditingController(text: user?.email),
                 ).workaroundFreezeLinuxMint()),

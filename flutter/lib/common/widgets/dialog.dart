@@ -133,6 +133,8 @@ void changeIdDialog() {
           TextField(
             decoration: InputDecoration(
                 labelText: translate('Your new ID'),
+                border: MyTheme.insideLabelBorder,
+                contentPadding: MyTheme.insideLabelPadding,
                 errorText: msg.isEmpty ? null : translate(msg),
                 suffixText: '${rxId.value.length}/16',
                 suffixStyle: const TextStyle(fontSize: 12, color: Colors.grey)),
@@ -534,6 +536,8 @@ class DialogTextField extends StatelessWidget {
               TextField(
                 decoration: InputDecoration(
                   labelText: title,
+                  border: MyTheme.insideLabelBorder,
+                  contentPadding: MyTheme.insideLabelPadding,
                   hintText: hintText,
                   prefixIcon: prefixIcon,
                   suffixIcon: suffixIcon,
@@ -2129,6 +2133,8 @@ void editAbPeerNoteDialog(String id) {
             maxLength: 300,
             decoration: InputDecoration(
               labelText: translate('Note'),
+              border: MyTheme.insideLabelBorder,
+              contentPadding: MyTheme.insideLabelPadding,
             ),
           ).workaroundFreezeLinuxMint(),
           // NOT use Offstage to wrap LinearProgressIndicator
@@ -2187,7 +2193,10 @@ void renameDialog(
               child: TextFormField(
                 controller: controller,
                 autofocus: true,
-                decoration: InputDecoration(labelText: translate('Name')),
+                decoration: InputDecoration(
+                    labelText: translate('Name'),
+                    border: MyTheme.insideLabelBorder,
+                    contentPadding: MyTheme.insideLabelPadding),
                 validator: validator,
               ).workaroundFreezeLinuxMint(),
             ),

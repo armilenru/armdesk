@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common/widgets/field_border.dart';
 import 'package:flutter_hbb/common/widgets/form_text_field.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -123,5 +125,26 @@ void main() {
     expect(
         tester.widget<TextField>(find.byType(TextField)).decoration?.hintText,
         '3389');
+  });
+
+  // On the desktop's outlined fields a label used to rise onto the frame and
+  // cut a gap in it.
+  testWidgets('the label of a filled field stays inside the field',
+      (tester) async {
+    await tester.pumpWidget(form(desktop: true));
+    await tester.pumpAndSettle();
+    final field = tester.getRect(find.byKey(const Key('password')));
+    final label = tester.getRect(find.text('Пароль'));
+    final text = tester.getRect(find.descendant(
+        of: find.byKey(const Key('password')),
+        matching: find.byType(EditableText)));
+
+    expect(label.top, greaterThan(field.top));
+    expect(label.bottom, lessThanOrEqualTo(text.top));
+  });
+
+  test('the desktop frames a labelled field without an outline', () {
+    expect(MyTheme.insideLabelBorder, isA<FieldBorder>());
+    expect(MyTheme.insideLabelBorder!.isOutline, isFalse);
   });
 }

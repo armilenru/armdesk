@@ -13,7 +13,6 @@
 // at a folder with segoeui.ttf, seguisb.ttf and segoeuib.ttf (under WSL that
 // is /mnt/c/Windows/Fonts, the default). Without them it is skipped.
 import 'dart:io';
-import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -244,89 +243,6 @@ Widget after(BuildContext context, {bool filled = false}) => Column(
       ],
     );
 
-// Candidate for the theme pass, kept here until it is applied to every field.
-/// A rounded outline whose label rises inside the field.
-///
-/// With [OutlineInputBorder] a floating label climbs onto the border and cuts
-/// a gap in it. Reporting `isOutline == false` keeps the label inside, where
-/// the forms on www.armilen.ru keep theirs, while the field still gets a
-/// rounded frame and a rounded fill.
-class FieldBorder extends InputBorder {
-  const FieldBorder({
-    super.borderSide = const BorderSide(),
-    this.radius = 12,
-  });
-
-  final double radius;
-
-  @override
-  bool get isOutline => false;
-
-  @override
-  FieldBorder copyWith({BorderSide? borderSide, double? radius}) => FieldBorder(
-      borderSide: borderSide ?? this.borderSide, radius: radius ?? this.radius);
-
-  @override
-  EdgeInsetsGeometry get dimensions => EdgeInsets.all(borderSide.width);
-
-  @override
-  FieldBorder scale(double t) =>
-      FieldBorder(borderSide: borderSide.scale(t), radius: radius * t);
-
-  @override
-  ShapeBorder? lerpFrom(ShapeBorder? a, double t) => a is FieldBorder
-      ? FieldBorder(
-          borderSide: BorderSide.lerp(a.borderSide, borderSide, t),
-          radius: lerpDouble(a.radius, radius, t)!)
-      : super.lerpFrom(a, t);
-
-  @override
-  ShapeBorder? lerpTo(ShapeBorder? b, double t) => b is FieldBorder
-      ? FieldBorder(
-          borderSide: BorderSide.lerp(borderSide, b.borderSide, t),
-          radius: lerpDouble(radius, b.radius, t)!)
-      : super.lerpTo(b, t);
-
-  RRect _shape(Rect rect) =>
-      RRect.fromRectAndRadius(rect, Radius.circular(radius));
-
-  @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
-      Path()..addRRect(_shape(rect).deflate(borderSide.width));
-
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
-      Path()..addRRect(_shape(rect));
-
-  @override
-  void paint(Canvas canvas, Rect rect,
-      {double? gapStart,
-      double gapExtent = 0.0,
-      double gapPercentage = 0.0,
-      TextDirection? textDirection}) {
-    if (borderSide.style == BorderStyle.none) return;
-    canvas.drawRRect(
-        _shape(rect).deflate(borderSide.width / 2), borderSide.toPaint());
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      other is FieldBorder &&
-      other.borderSide == borderSide &&
-      other.radius == radius;
-
-  @override
-  int get hashCode => Object.hash(borderSide, radius);
-}
-
-Widget afterInside(BuildContext context) => Theme(
-      data: Theme.of(context).copyWith(
-          inputDecorationTheme: Theme.of(context)
-              .inputDecorationTheme
-              .copyWith(border: const FieldBorder(), isDense: false)),
-      child: Builder(builder: (c) => after(c, filled: true)),
-    );
-
 /// "RDP Settings" and "Add ID" as they are built now.
 Widget rdp(BuildContext context) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -377,6 +293,28 @@ Widget addId(BuildContext context) => Column(
       ],
     );
 
+/// A field without a label beside labelled ones: it must look as it always did.
+Widget mixed(BuildContext context) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const Key('f1'),
+          controller: TextEditingController(text: 'поле без подписи'),
+        ).marginOnly(bottom: 8),
+        FormTextField(
+          key: const Key('f2'),
+          label: 'Имя пользователя',
+          controller: TextEditingController(text: 'Администратор'),
+        ).marginOnly(bottom: 8),
+        FormTextField(
+          key: const Key('f3'),
+          label: 'Пароль',
+          controller: TextEditingController(),
+          isPassword: true,
+        ),
+      ],
+    );
+
 Widget dialog(BuildContext context, Widget body,
         {String title = 'SOCKS5/HTTP(S)-прокси'}) =>
     AlertDialog(
@@ -408,8 +346,8 @@ void main() {
     'before': before,
     'after': (c) => after(c),
     'after_filled': (c) => after(c, filled: true),
-    'after_inside': afterInside,
     'rdp': rdp,
+    'mixed': mixed,
     'add_id': addId,
     'a': variantA,
     'b': variantB,
@@ -459,6 +397,13 @@ void main() {
       final report = StringBuffer();
       for (final k in ['f1', 'f2', 'f3']) {
         report.writeln('field $k: ${r(find.byKey(Key(k)))}');
+      }
+      for (final k in ['f1', 'f2', 'f3']) {
+        final field = tester.getRect(find.byKey(Key(k)));
+        final text = tester.getRect(find.descendant(
+            of: find.byKey(Key(k)), matching: find.byType(EditableText)));
+        report.writeln(
+            'text in $k: above ${(text.top - field.top).toStringAsFixed(1)} below ${(field.bottom - text.bottom).toStringAsFixed(1)}');
       }
       File('$out/${entry.key}.txt').writeAsStringSync(report.toString());
       await expectLater(

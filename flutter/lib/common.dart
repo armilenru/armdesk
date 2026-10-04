@@ -29,6 +29,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:window_size/window_size.dart' as window_size;
 
 import '../consts.dart';
+import 'common/widgets/field_border.dart';
 import 'common/widgets/overlay.dart';
 import 'mobile/pages/file_manager_page.dart';
 import 'mobile/pages/remote_page.dart';
@@ -334,6 +335,17 @@ class MyTheme {
       windows ? const EdgeInsets.fromLTRB(16, 8, 16, 10) : null;
   static EdgeInsetsGeometry? get buttonPadding =>
       buttonPaddingFor(windows: isWindows);
+
+  // A field with a label carries the label inside: resting where the text
+  // will be, rising to the top of the field once there is text. The desktop
+  // theme frames its fields with an outline, and on an outline the label
+  // rises onto the frame instead. These two go on every labelled field; a
+  // phone has underlined fields that already behave this way, so it gets
+  // nothing. Fields without a label are left as they are.
+  static InputBorder? get insideLabelBorder =>
+      (isDesktop || isWebDesktop) ? const FieldBorder() : null;
+  static EdgeInsetsGeometry? get insideLabelPadding =>
+      (isDesktop || isWebDesktop) ? const EdgeInsets.all(12) : null;
 
   // Dialogs
   static const double dialogPadding = 24;

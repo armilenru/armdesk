@@ -354,6 +354,9 @@ fn update_new_version(update_msi: bool, version: &str, file_path: &PathBuf) {
 }
 
 pub fn get_update_download_file_from_url(url: &str) -> Option<PathBuf> {
+    if let Some(file) = armdesk_update_download_file(url) {
+        return Some(file);
+    }
     let parsed = url::Url::parse(url).ok()?;
     // Check the raw prefix before Url normalizes default ports.
     if !url.starts_with("https://github.com/")
@@ -408,6 +411,43 @@ fn is_plain_update_filename(filename: &str) -> bool {
 
 pub fn get_download_file_from_url(url: &str) -> Option<PathBuf> {
     get_update_download_file_from_url(url)
+}
+
+// ArmDesk is published on our own site, not in upstream's GitHub releases:
+// /api/version-check answers https://www.armilen.ru/api/download/<version> and
+// the client appends the file name. Without this the upstream check rejects
+// every ArmDesk update before a single request is made.
+fn armdesk_update_download_file(url: &str) -> Option<PathBuf> {
+    let parsed = url::Url::parse(url).ok()?;
+    // Check the raw prefix before Url normalizes default ports.
+    if !url.starts_with("https://www.armilen.ru/")
+        || parsed.scheme() != "https"
+        || parsed.host_str() != Some("www.armilen.ru")
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.port().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return None;
+    }
+
+    let mut segments = parsed.path_segments()?;
+    let api = segments.next()?;
+    let download = segments.next()?;
+    let version = segments.next()?;
+    let filename = segments.next()?;
+
+    if api != "api"
+        || download != "download"
+        || version.is_empty()
+        || segments.next().is_some()
+        || !is_plain_update_filename(filename)
+    {
+        return None;
+    }
+
+    Some(std::env::temp_dir().join(filename))
 }
 
 /// Queries all active connections (remote, file-transfer, port-forward, camera, terminal)
@@ -686,6 +726,36 @@ mod tests {
             "https://github.com/rustdesk/rustdesk/releases/download/1/rustdesk.exe?download=1",
             "https://github.com/rustdesk/rustdesk/releases/download/1/rustdesk.exe#download",
             "not a url",
+        ] {
+            assert!(get_download_file_from_url(url).is_none(), "{url}");
+        }
+    }
+
+    #[test]
+    fn update_download_file_accepts_armdesk_site_urls() {
+        let file = get_download_file_from_url(
+            "https://www.armilen.ru/api/download/1.5.0-2/rustdesk-1.5.0-2-x86_64.exe",
+        )
+        .expect("valid ArmDesk download URL");
+
+        assert_eq!(
+            file.file_name().and_then(|name| name.to_str()),
+            Some("rustdesk-1.5.0-2-x86_64.exe")
+        );
+    }
+
+    #[test]
+    fn update_download_file_rejects_lookalike_armdesk_urls() {
+        for url in [
+            "http://www.armilen.ru/api/download/1/rustdesk.exe",
+            "https://armilen.ru/api/download/1/rustdesk.exe",
+            "https://www.armilen.ru.example.com/api/download/1/rustdesk.exe",
+            "https://www.armilen.ru/downloads/rustdesk.exe",
+            "https://www.armilen.ru/api/download/1/",
+            "https://www.armilen.ru/api/download/1/nested/rustdesk.exe",
+            "https://user@www.armilen.ru/api/download/1/rustdesk.exe",
+            "https://www.armilen.ru:443/api/download/1/rustdesk.exe",
+            "https://www.armilen.ru/api/download/1/rustdesk.exe?download=1",
         ] {
             assert!(get_download_file_from_url(url).is_none(), "{url}");
         }

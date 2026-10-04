@@ -11,7 +11,7 @@ on:
 
 jobs:
   run-flutter-tag-build:
-    # Публикация ассетов релиза и удаление устаревших требуют записи в contents.
+    # Publishing release assets and deleting stale ones need write access to contents.
     permissions:
       contents: write
     uses: ./.github/workflows/flutter-build.yml
@@ -19,6 +19,6 @@ jobs:
     with:
       upload-artifact: true
       upload-tag: ${{ github.ref_name }}
-      # Сборка по тегу это именованный релиз, а не рабочая выкладка: собираем
-      # всё, включая цели, которые на сайт не уезжают.
+      # A tag build is a named release, not the working rollout: build
+      # everything, including the targets that do not go to the site.
       full-matrix: true

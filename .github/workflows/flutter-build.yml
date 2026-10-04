@@ -13,7 +13,7 @@ on:
         type: string
         default: "nightly"
       full-matrix:
-        description: Собрать и цели, которые не выкладываются на сайт
+        description: Also build the targets that are not published on the site
         type: boolean
         default: false
   workflow_call:
@@ -24,13 +24,13 @@ on:
       upload-tag:
         type: string
         default: "nightly"
-      # Armilen: на сайт уезжают четыре файла (x86_64 exe, universal dmg,
-      # x86_64 AppImage, universal apk), а матрица досталась от апстрима
-      # целиком. Больше половины времени раннеров уходило на цели, которые
-      # никто не скачивает, и каждая из них добавляла свой шанс уронить
-      # сборку - при том что красный крест должен означать поломку того, что
-      # мы отдаём людям. Здесь они выключены по умолчанию и включаются
-      # вручную или для сборки по тегу.
+      # Armilen: four files go to the site (x86_64 exe, universal dmg,
+      # x86_64 AppImage, universal apk), while the matrix came from upstream
+      # whole. More than half of the runner time went to targets nobody
+      # downloads, and each of them added its own chance to fail the build,
+      # although a red cross should mean that something we ship is broken.
+      # They are off by default here and are turned on by hand or for a tag
+      # build.
       full-matrix:
         type: boolean
         default: false
@@ -43,10 +43,11 @@ on:
 # in this file!
 
 env:
-  # Литералами намеренно: адреса и публичный ключ сервера не секрет (они в DNS,
-  # на странице /support и внутри каждой опубликованной сборки), а пустая
-  # переменная собрала бы клиент, не знающий, куда подключаться. Секретом здесь
-  # является только то, что нельзя достать из готового клиента.
+  # Literals on purpose: the server addresses and its public key are not
+  # secret (they are in DNS, on the /support page and inside every published
+  # build), and an empty variable would build a client that does not know
+  # where to connect. Only what cannot be read out of a finished client is a
+  # secret here.
   RENDEZVOUS_SERVER: "www.armilen.ru:21116"
   RELAY_SERVER: "www.armilen.ru:21117"
   API_SERVER: "https://desk.armilen.ru"
@@ -88,7 +89,7 @@ env:
 
 jobs:
   generate-sbom:
-    # Armilen: опись зависимостей для релиза на сайт не уезжает.
+    # Armilen: the dependency inventory of a release does not go to the site.
     if: ${{ inputs.full-matrix }}
     runs-on: ubuntu-latest
 
@@ -130,8 +131,8 @@ jobs:
               target: windows-2022,
               platform: x64,
             }
-          # Armilen: единственным потребителем ARM64-артефакта была ветка
-          # aarch64-pc-windows-msvc ниже, она отключена.
+          # Armilen: the only consumer of the ARM64 artifact was the
+          # aarch64-pc-windows-msvc branch below, which is disabled.
           # - {
           #     target: windows-11-arm,
           #     platform: ARM64,
@@ -161,18 +162,18 @@ jobs:
               vcpkg-triplet: x64-windows-static,
               build-args: "--vram",
             }
-          # Armilen: Windows on ARM собираться перестал. Шаг «Build msi» падает
-          # на ARM-раннере нехваткой памяти под precompiled header
-          # (C3859/C1076 в res/msi/CustomActions), после чего пропускается
-          # публикация, вся матрица считается упавшей и вместе с ней
-          # пропускается notify-armilen-build-ready. Апстрим при этом зелёный,
-          # то есть чинить у себя нечего: сбой плавающий, зависит от памяти
-          # раннера.
+          # Armilen: Windows on ARM stopped building. The "Build msi" step runs
+          # out of memory for the precompiled header on the ARM runner
+          # (C3859/C1076 in res/msi/CustomActions), after which publishing is
+          # skipped, the whole matrix counts as failed and
+          # notify-armilen-build-ready is skipped with it. Upstream stays
+          # green, so there is nothing to fix on our side: the failure is
+          # intermittent and depends on the runner's memory.
           #
-          # Платить за это регулярно красной сборкой не за что: Windows 11 on
-          # ARM запускает x64-сборку через встроенную эмуляцию, без единого
-          # действия от пользователя, и на сайт мы ARM-сборку не выкладываем.
-          # Раскомментировать, если появится причина выкладывать её отдельно.
+          # A regularly red build is not worth it: Windows 11 on ARM runs the
+          # x64 build through its built-in emulation with no action from the
+          # user, and we do not publish an ARM build on the site. Uncomment if
+          # there is ever a reason to publish it separately.
           # - {
           #     target: aarch64-pc-windows-msvc,
           #     os: windows-11-arm,
@@ -522,7 +523,7 @@ jobs:
 
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
   build-for-windows-sciter:
-    # Armilen: Sciter UI апстрим объявил deprecated, мы его не выкладываем.
+    # Armilen: upstream declared the Sciter UI deprecated, we do not publish it.
     if: ${{ inputs.full-matrix }}
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
@@ -695,7 +696,7 @@ jobs:
             ./SignOutput/rustdesk-*.exe
 
   build-rustdesk-ios:
-    # Armilen: ipa никуда не публикуется, на iOS отдельная инструкция /remote-ios.
+    # Armilen: the ipa is not published anywhere, iOS has its own guide, /remote-ios.
     if: ${{ inputs.upload-artifact && inputs.full-matrix }}
     name: build rustdesk ios ipa
     runs-on: ${{ matrix.job.os }}
@@ -1076,11 +1077,12 @@ jobs:
           files: |
             rustdesk*-${{ matrix.job.arch }}.dmg
 
-  # Armilen: один dmg на обе архитектуры Mac вместо выбора между Intel и Apple
-  # Silicon на странице загрузки. Отдельным джобом, а не внутри build-for-macOS:
-  # тот собирает по одной архитектуре на разных раннерах и склеивать ему нечего.
-  # Джоб аддитивный - если склейка сломается, обе поарочные сборки всё равно
-  # опубликованы своими джобами, и выкладка на сайт откатится на x86_64.
+  # Armilen: one dmg for both Mac architectures instead of a choice between
+  # Intel and Apple Silicon on the download page. A separate job, not a part
+  # of build-for-macOS: that one builds a single architecture per runner and
+  # has nothing to merge. The job is additive: if merging breaks, both
+  # per-architecture builds are still published by their own jobs, and the
+  # site falls back to x86_64.
   build-macos-universal:
     name: macos universal dmg
     needs: [build-for-macOS]
@@ -1105,8 +1107,9 @@ jobs:
       - name: Extract both app bundles
         run: |
           set -euo pipefail
-          # Артефактом уезжает dmg, а не сам бандл: .app это дерево с симлинками
-          # внутри фреймворков, и upload-artifact их разворачивает.
+          # The artifact is the dmg, not the bundle itself: an .app is a tree
+          # with symlinks inside its frameworks, and upload-artifact
+          # dereferences them.
           for arch in x86_64 aarch64; do
             dmg=$(ls ./dmg-$arch/*.dmg)
             mnt=$(mktemp -d)
@@ -1145,9 +1148,10 @@ jobs:
       - build-for-windows-flutter
       - build-for-windows-sciter
     runs-on: ubuntu-latest
-    # Armilen: собирает архив неподписанных сборок для внешнего подписания,
-    # которым мы не пользуемся; вдобавок ждёт Sciter-ветку Windows. Явное
-    # выключение вместо молчаливого пропуска по недостижимому needs.
+    # Armilen: builds an archive of unsigned binaries for external signing,
+    # which we do not use; it also waits for the Windows Sciter branch.
+    # Disabled explicitly rather than skipped silently through an unreachable
+    # needs.
     if: ${{ inputs.upload-artifact && inputs.full-matrix }}
     steps:
       - name: Download artifacts
@@ -1720,8 +1724,8 @@ jobs:
               deb_arch: amd64,
               vcpkg-triplet: x64-linux,
             }
-          # Armilen: на сайте только x86_64 AppImage. ARM-сборку Linux мы не
-          # публикуем, а стоит она получаса раннера.
+          # Armilen: the site has only the x86_64 AppImage. We do not publish
+          # an ARM build for Linux, and it costs half an hour of runner time.
           # - {
           #     arch: aarch64,
           #     target: aarch64-unknown-linux-gnu,
@@ -2066,8 +2070,8 @@ jobs:
   # old for it. A separate job rather than a matrix entry of build-rustdesk-linux: appimage and
   # flatpak need that job, and a failure here must not skip them.
   build-rustdesk-linux-drm:
-    # Armilen: отдельный deb для Wayland без присмотра мы не публикуем, а стоит
-    # он второй полной сборки Linux.
+    # Armilen: we do not publish a separate deb for unattended Wayland, and it
+    # costs a second full Linux build.
     if: ${{ inputs.full-matrix }}
     needs: [generate-bridge]
     name: build rustdesk linux drm x86_64
@@ -2379,8 +2383,8 @@ jobs:
           path: ${{ env.DRM_DEB }}
 
   build-rustdesk-linux-sciter:
-    # Armilen: самая долгая ветка всей матрицы (armv7 около часа) ради
-    # deprecated-интерфейса, которого нет ни в одной нашей сборке.
+    # Armilen: the longest branch of the whole matrix (armv7 takes about an
+    # hour) for a deprecated interface that none of our builds contains.
     if: ${{ inputs.upload-artifact && inputs.full-matrix }}
     runs-on: ${{ matrix.job.on }}
     name: build-rustdesk-linux-sciter ${{ matrix.job.target }}
@@ -2643,7 +2647,7 @@ jobs:
       matrix:
         job:
           - { target: x86_64-unknown-linux-gnu, arch: x86_64 }
-          # Armilen: собирать нечего, ARM-ветка build-rustdesk-linux отключена.
+          # Armilen: nothing to build, the ARM branch of build-rustdesk-linux is disabled.
           # - { target: aarch64-unknown-linux-gnu, arch: aarch64 }
     steps:
       - name: Checkout source code
@@ -2696,8 +2700,9 @@ jobs:
       - build-rustdesk-linux
       - build-rustdesk-linux-sciter
     runs-on: ${{ matrix.job.on }}
-    # Armilen: на сайте лежит AppImage, flatpak мы не публикуем. Ещё и зависит
-    # от build-rustdesk-linux-sciter, который выключен вместе с остальным Sciter.
+    # Armilen: the site has the AppImage, we do not publish a flatpak. It also
+    # depends on build-rustdesk-linux-sciter, which is off with the rest of
+    # Sciter.
     if: ${{ inputs.upload-artifact && inputs.full-matrix }}
     strategy:
       fail-fast: false
@@ -2867,15 +2872,16 @@ jobs:
           files: |
             flutter/build/rustdesk-${{ env.VERSION }}-${{ env.RELEASE_NAME }}.tar.gz
 
-  # Тело релиза задаём явно. Пустое тело GitHub замещает сообщением коммита,
-  # на который указывает тег, а тег nightly едет за master — то есть на
-  # странице релиза оказывался внутренний разбор причин, написанный для себя,
-  # а не для того, кто пришёл скачать клиент.
+  # The release body is set explicitly. GitHub replaces an empty body with the
+  # message of the commit the tag points to, and the nightly tag follows
+  # master, so the release page showed an internal write-up of causes meant
+  # for ourselves, not for someone who came to download the client.
   #
-  # Отдельным джобом, а не шагом уведомления: тот ждёт четыре сборки сразу и
-  # пропускается, если хоть одна не отработала, а текст релиза от их успеха
-  # не зависит. Зависимость от build-appimage нужна только затем, чтобы релиз
-  # к этому моменту уже существовал: PATCH создать его не может.
+  # A separate job, not a step of the notification: that one waits for four
+  # builds at once and is skipped if any of them did not finish, while the
+  # release text does not depend on their success. The dependency on
+  # build-appimage is only there so that the release exists by this point:
+  # PATCH cannot create it.
   set-release-notes:
     name: Set release notes
     if: inputs.upload-artifact == true
@@ -2890,35 +2896,36 @@ jobs:
           TAG: ${{ inputs.upload-tag }}
         run: |
           set -euo pipefail
-          # PATCH идёт по идентификатору релиза: адреса /releases/tags/<tag>
-          # у этого метода нет, по тегу релиз можно только прочитать.
+          # PATCH goes by the release id: this method has no
+          # /releases/tags/<tag> address, a release can only be read by tag.
           id=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq .id)
           read -r -d '' NOTES <<'EOF' || true
-          Кастомная сборка ArmDesk на базе RustDesk (AGPL-3.0).
+          A custom ArmDesk build based on RustDesk (AGPL-3.0).
 
-          Клиенты для пользователей: https://www.armilen.ru/support
-          Политика конфиденциальности: https://www.armilen.ru/legal/armdesk-privacy
+          Client downloads: https://www.armilen.ru/support
+          Privacy policy: https://www.armilen.ru/legal/armdesk-privacy
           EOF
           if [ "$TAG" = "nightly" ]; then
-            NOTES+=$'\n\nРелиз скользящий: содержимое соответствует текущему состоянию ветки master.'
+            NOTES+=$'\n\nRolling release: its contents match the current state of the master branch.'
           fi
           gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${id}" \
             -f body="$NOTES" --jq '.html_url'
 
-  # Уведомление в Telegram о готовой кастомной сборке, с кнопкой запуска
-  # выкладки. needs перечисляет только 4 джоба, чьи артефакты реально
-  # выкладываются (windows exe, macOS dmg, Linux AppImage, Android universal
-  # apk), а не весь список джобов workflow: ios/sciter/flatpak/web не
-  # выкладываются и падают по причинам, не связанным с этими четырьмя, —
-  # незачем блокировать на них уведомление.
+  # A Telegram notification about a finished custom build, with a button that
+  # starts the rollout. needs lists only the 4 jobs whose artifacts are
+  # actually published (windows exe, macOS dmg, Linux AppImage, Android
+  # universal apk), not every job of the workflow: ios/sciter/flatpak/web are
+  # not published and fail for reasons unrelated to these four, so there is
+  # no point in blocking the notification on them.
   notify-armilen-build-ready:
     name: Notify Telegram (build ready)
-    # inputs.upload-artifact, не push/ref: этот reusable workflow вызывается и
-    # обычным push-CI (flutter-ci.yml, upload-artifact: false - ничего не
-    # публикует в релиз nightly) и flutter-nightly.yml (upload-artifact: true -
-    # реально публикует). Уведомлять есть смысл только когда что-то новое
-    # действительно ушло в релиз. Только nightly: кнопка в сообщении выкладывает
-    # на сайт именно его, сборка под другим тегом туда не попадает.
+    # inputs.upload-artifact, not push/ref: this reusable workflow is called
+    # both by the regular CI (flutter-ci.yml, upload-artifact: false, publishes
+    # nothing to the nightly release) and by flutter-nightly.yml
+    # (upload-artifact: true, really publishes). A notification makes sense
+    # only when something new has actually reached the release. Only nightly:
+    # the button in the message puts exactly that release on the site, a build
+    # under another tag does not get there.
     if: inputs.upload-artifact == true && inputs.upload-tag == 'nightly'
     needs:
       - build-for-windows-flutter
@@ -2932,11 +2939,11 @@ jobs:
       - name: Send Telegram notification
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_ADMIN_BOT_TOKEN }}
-          # Только секрет, без запасного литерала: репозиторий публичный.
-          # Тот же чат называется TG_ADMIN_CHAT_ID и в .env на сервере, чтобы
-          # одно значение не разъехалось в двух видах. Если секрет не задан,
-          # шаг ниже молча выходит — это осознанно, уведомление не повод
-          # ронять сборку
+          # A secret only, with no fallback literal: the repository is public.
+          # The same chat is called TG_ADMIN_CHAT_ID in the server's .env too,
+          # so that one value does not drift apart under two names. If the
+          # secret is not set, the step below exits silently. That is
+          # deliberate: a notification is no reason to fail the build.
           TG_CHAT_ID: ${{ secrets.TG_ADMIN_CHAT_ID }}
           TG_THREAD_ID: ""
         run: |
@@ -2960,15 +2967,16 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
 
-      # Релиз nightly скользящий: сборка перезаписывает только те ассеты, что
-      # сама произвела, поэтому после смены версии файлы предыдущей остаются в
-      # нём навсегда. К 1.4.9 так накопилось 835 МБ мёртвых файлов 1.4.8, среди
-      # которых лежали и exe с dmg - на странице релиза не отличить, какой из
-      # них актуальный.
+      # The nightly release is a rolling one: a build overwrites only the
+      # assets it produced itself, so after a version change the files of the
+      # previous one stay in it forever. By 1.4.9 that had piled up 835 MB of
+      # dead 1.4.8 files, an exe and a dmg among them, and the release page
+      # did not show which one was current.
       #
-      # Удаляем только ассеты с версией, отличной от текущей: такие не может
-      # выкладывать этот же прогон, поэтому гонки с ещё идущими джобами нет.
-      - name: Удалить ассеты прошлых версий
+      # Only assets whose version differs from the current one are deleted:
+      # this same run cannot be uploading those, so there is no race with jobs
+      # still in progress.
+      - name: Delete assets of previous versions
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -2976,14 +2984,15 @@ jobs:
           gh release view "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" --json assets \
             --jq ".assets[] | select(.name | startswith(\"rustdesk-\") and (contains(\"${VERSION}\") | not)) | .name" \
           | while read -r asset; do
-              echo "удаляю $asset"
+              echo "deleting $asset"
               gh release delete-asset "${TAG_NAME}" "$asset" --repo "${GITHUB_REPOSITORY}" --yes
             done
 
-  # Именованный релиз версии из тех же файлов, что лежат в nightly и уезжают
-  # на сайт: вторая сборка дала бы другие файлы под тем же номером. Тег ставит
-  # GITHUB_TOKEN, поэтому flutter-tag.yml на него не срабатывает. Релиз
-  # создаётся один раз на номер: сборка без смены VERSION его не трогает.
+  # A named release of the version, made from the same files that are in
+  # nightly and go to the site: a second build would give different files
+  # under the same number. The tag is pushed by GITHUB_TOKEN, so
+  # flutter-tag.yml does not fire on it. The release is created once per
+  # number: a build that does not change VERSION leaves it alone.
   publish-version-release:
     name: Publish version release
     if: inputs.upload-artifact == true && inputs.upload-tag == 'nightly'
@@ -3009,10 +3018,10 @@ jobs:
           gh release download "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" --dir assets \
             --pattern "rustdesk-${VERSION}-*"
           read -r -d '' NOTES <<EOF || true
-          Сборка ArmDesk ${VERSION} на базе RustDesk (AGPL-3.0).
+          ArmDesk ${VERSION}, a build based on RustDesk (AGPL-3.0).
 
-          Клиенты для пользователей: https://www.armilen.ru/support
-          Политика конфиденциальности: https://www.armilen.ru/legal/armdesk-privacy
+          Client downloads: https://www.armilen.ru/support
+          Privacy policy: https://www.armilen.ru/legal/armdesk-privacy
           EOF
           gh release create "$tag" assets/* --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" --title "$tag" --notes "$NOTES"

@@ -1,12 +1,13 @@
 name: Full Flutter CI
 
-# Armilen: push в master сюда больше не приходит - его собирает и публикует
-# flutter-nightly.yml. Оставить оба триггера значило бы гонять две полные
-# четырёхплатформенные сборки на каждый коммит, из которых одна ничего не
-# публикует. Проверка PR (её использует поток sync-upstream) осталась.
+# Armilen: a push to master no longer comes here, flutter-nightly.yml builds
+# and publishes it. Keeping both triggers would mean two full four-platform
+# builds for every commit, one of which publishes nothing. The PR check (the
+# sync-upstream flow uses it) stays.
 #
-# Заодно расходились paths-ignore: здесь исключены res/** и .github/**, то есть
-# правки иконок и самого workflow сборку не запускали.
+# The paths-ignore lists had also drifted apart: res/** and .github/** were
+# excluded here, so edits to icons and to the workflow itself did not start
+# a build.
 on:
   workflow_dispatch:
   pull_request:
@@ -16,10 +17,10 @@ on:
 
 jobs:
   run-ci:
-    # Вызываемый workflow объявляет джобы с contents: write (публикация
-    # релиза). При upload-artifact: false они пропускаются, но GitHub сверяет
-    # права до запуска и отказывает всему прогону (startup_failure), если
-    # вызывающий джоб их не дал.
+    # The called workflow declares jobs with contents: write (publishing the
+    # release). With upload-artifact: false they are skipped, but GitHub
+    # checks permissions before the start and refuses the whole run
+    # (startup_failure) if the calling job did not grant them.
     permissions:
       contents: write
     uses: ./.github/workflows/flutter-build.yml

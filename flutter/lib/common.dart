@@ -268,7 +268,7 @@ class MyTheme {
   static const Color hoverBorder = Color(0xFF999999);
 
   /// The accent that carries enough contrast on the surface of the theme that
-  /// is actually in effect. Use it wherever a colour is picked outside a
+  /// is actually in effect. Use it wherever a color is picked outside a
   /// `BuildContext` and so cannot come off `Theme.of(context).colorScheme`.
   static Color get accentForCurrentTheme =>
       currentThemeMode() == ThemeMode.dark ? accentBright : accent;
@@ -325,7 +325,7 @@ class MyTheme {
   }
 
   // Segoe UI sets its capitals 0.88 px below the middle of the line box, so
-  // text centred by that box sits low in a button. Two pixels more padding at
+  // text centered by that box sits low in a button. Two pixels more padding at
   // the bottom than at the top lift it by one, a whole pixel so the glyphs
   // stay sharp. The desktop's compact density takes 8 px off every side, hence
   // 8 and 10 for what ends up as 0 and 2. Roboto (Linux, Android) is within a
@@ -339,7 +339,7 @@ class MyTheme {
   // A field with a label carries the label inside: resting where the text
   // will be, rising to the top of the field once there is text. The desktop
   // theme frames its fields with an outline, and on an outline the label
-  // rises onto the frame instead. These two go on every labelled field; a
+  // rises onto the frame instead. These two go on every labeled field; a
   // phone has underlined fields that already behave this way, so it gets
   // nothing. Fields without a label are left as they are.
   static InputBorder? get insideLabelBorder =>
@@ -1360,7 +1360,7 @@ Color? _msgboxColor(String type) {
   if (type.contains("error") || type == "re-input-password") {
     return Color(0xFFE04F5F);
   }
-  // Neutral/info dialogs get the brand accent; the colours above stay as they
+  // Neutral/info dialogs get the brand accent; the colors above stay as they
   // are because they carry meaning (success, warning, error), not branding.
   return MyTheme.accentForCurrentTheme;
 }

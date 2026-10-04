@@ -47,7 +47,7 @@ jobs:
 
   # Nobody sees a failed build: the site silently stays on the previous
   # version, and with an automatic upstream release the GitHub mail goes to a
-  # bot, not a person. A cancelled run (pushed out by the next push) does not
+  # bot, not a person. A canceled run (pushed out by the next push) does not
   # get here.
   notify-failure:
     needs: run-flutter-nightly-build

@@ -1,7 +1,7 @@
 // A stand, not a test: draws the dialog buttons with the fonts of each
 // platform so the place of the text inside a button can be measured from the
-// picture. A font's line box is not centred on its capital letters, so text
-// that is geometrically centred looks low; by how much depends on the font.
+// picture. A font's line box is not centered on its capital letters, so text
+// that is geometrically centered looks low; by how much depends on the font.
 //
 // Run from flutter/:
 //   ARMDESK_STAND_OUT=/some/dir flutter test --update-goldens test/stand/buttons_stand.dart

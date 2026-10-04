@@ -19,7 +19,7 @@ Widget button(EdgeInsetsGeometry? padding) => MaterialApp(
 
 void main() {
   // Segoe UI draws its capitals below the middle of the line box, so on
-  // Windows a label centred by that box looked low in every button.
+  // Windows a label centered by that box looked low in every button.
   testWidgets('on Windows a button lifts its label by a pixel, same height',
       (tester) async {
     await tester.pumpWidget(button(null));

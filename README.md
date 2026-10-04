@@ -16,7 +16,7 @@ https://www.armilen.ru/support. The same files are attached to the
 
 ## What differs from upstream
 
-- Its own name, icons, logos and accent colour.
+- Its own name, icons, logos and accent color.
 - By default it connects to our rendezvous and relay servers (`hbbs`/`hbbr`)
   with our server key.
 - Account sign-in and the address book go to our own API server, never to

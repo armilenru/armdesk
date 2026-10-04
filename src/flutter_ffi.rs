@@ -1177,7 +1177,7 @@ pub fn main_check_connect_status() {
 pub fn main_is_using_public_server() -> bool {
     // Armilen: only this FFI getter, not crate::using_public_server():
     // rendezvous_mediator.rs (the DDNS helper) and client.rs (allow_more) use
-    // the same function, and their behaviour is left alone. Here it feeds a
+    // the same function, and their behavior is left alone. Here it feeds a
     // single UI widget ("set up your own server for a faster connection" in
     // connection_page.dart): the condition there actually checks only the
     // user's custom-rendezvous-server field (empty for all our users), not

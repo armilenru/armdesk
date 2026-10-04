@@ -117,14 +117,14 @@ async function androidSet(name, baseline, file) {
 }
 
 // @color/ic_launcher_background. Android's adaptive-icon background layer takes
-// a flat colour, not the tile's gradient, so use the gradient's middle stop -
-// the base colour the other two are a step either side of.
+// a flat color, not the tile's gradient, so use the gradient's middle stop -
+// the base color the other two are a step either side of.
 async function writeAndroidBackgroundColor() {
 	const tile = (await svg("tile-dark")).toString();
 	const field = tile.match(/<stop[^>]*\soffset="0\.5"[^>]*\sstop-color="(#[0-9a-fA-F]{6})"/)?.[1];
 	if (!field) {
 		throw new Error(
-			"tile-dark.svg: no gradient stop at offset 0.5 to take the flat field colour from"
+			"tile-dark.svg: no gradient stop at offset 0.5 to take the flat field color from"
 		);
 	}
 	const dest = out("flutter", "android", "app", "src", "main", "res", "values", "ic_launcher_background.xml");
@@ -159,9 +159,9 @@ async function main() {
 	await androidSet("tile-round", 48, "ic_launcher_round.png"); // round mask
 	await androidSet("foreground", 108, "ic_launcher_foreground.png"); // adaptive fg + monochrome
 	await androidSet("glyph-mono", 24, "ic_stat_logo.png"); // status-bar notification
-	// The adaptive icon's background is a colour resource, not a bitmap, so it
+	// The adaptive icon's background is a color resource, not a bitmap, so it
 	// cannot be rasterized like the layers above - derive it from the tile so it
-	// can never drift away from the field colour the other icons are drawn on.
+	// can never drift away from the field color the other icons are drawn on.
 	await writeAndroidBackgroundColor();
 
 	// --- Flutter in-app assets (bundled via `- assets/` in pubspec) ---

@@ -120,7 +120,7 @@ Widget variantA(BuildContext context) => Column(
       ],
     );
 
-/// B: a label column as wide as its widest label, centred on the input box.
+/// B: a label column as wide as its widest label, centered on the input box.
 Widget variantB(BuildContext context) {
   Widget cell(Widget child) => SizedBox(
       height: 45, child: Align(alignment: Alignment.centerRight, child: child));
@@ -293,7 +293,7 @@ Widget addId(BuildContext context) => Column(
       ],
     );
 
-/// A field without a label beside labelled ones: it must look as it always did.
+/// A field without a label beside labeled ones: it must look as it always did.
 Widget mixed(BuildContext context) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

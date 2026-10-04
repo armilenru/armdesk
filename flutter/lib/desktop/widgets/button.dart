@@ -133,9 +133,9 @@ class _FixedWidthButtonState extends State<FixedWidthButton> {
             // Armilen: a pressed outline button stays in its own palette instead
             // of flooding with the brand accent. The install card paints itself
             // over a pink gradient with a white outline button, and filling that
-            // button green on tap dropped a colour from another world onto the
+            // button green on tap dropped a color from another world onto the
             // card for the length of the press. Filled buttons keep the accent
-            // exactly as before: there the accent IS the button's own colour.
+            // exactly as before: there the accent IS the button's own color.
             decoration: BoxDecoration(
               color: pressed.value
                   ? (widget.isOutline

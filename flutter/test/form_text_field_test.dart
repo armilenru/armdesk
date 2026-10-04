@@ -143,7 +143,7 @@ void main() {
     expect(label.bottom, lessThanOrEqualTo(text.top));
   });
 
-  test('the desktop frames a labelled field without an outline', () {
+  test('the desktop frames a labeled field without an outline', () {
     expect(MyTheme.insideLabelBorder, isA<FieldBorder>());
     expect(MyTheme.insideLabelBorder!.isOutline, isFalse);
   });

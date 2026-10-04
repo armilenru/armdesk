@@ -14,14 +14,14 @@ upstream RustDesk as is.
   positions of its parts are read off the render tree or off the picture.
   "Looks aligned" is not a result; "all three fields run from 64.0 to 556.0"
   is.
-- **One place.** Colours, text sizes, button and field shapes live in
+- **One place.** Colors, text sizes, button and field shapes live in
   `MyTheme` (`flutter/lib/common.dart`). A screen does not carry its own
   numbers for them.
 - **The smallest diff.** Every upstream file the fork rewrites is a merge
   conflict at the next RustDesk release. The theme and shared widgets come
   first; a single screen is edited only for a real defect.
 
-## Colour
+## Color
 
 | Token | Value | Use |
 |---|---|---|
@@ -61,16 +61,16 @@ Decided 2026-10-04: **the label lives inside the field.**
   on the same lines in every language.
 - No label column. A column `minWidth` wide is a minimum, not a width: a longer
   label pushed its own field to the right, and a character counter under a
-  field pulled that field's label off its centre line.
+  field pulled that field's label off its center line.
 - **The label rises inside the field, never onto its frame.** Empty, the field
   shows the label where the text will go; with text or the focus, the label
   sits small at the top of the field, as `.field-float` does on the site. The
   desktop theme frames fields with an outline, and on an outline a label
-  climbs onto the frame, so every labelled field of the desktop takes
+  climbs onto the frame, so every labeled field of the desktop takes
   `border: MyTheme.insideLabelBorder` and
   `contentPadding: MyTheme.insideLabelPadding`. On a phone both are null: its
   underlined fields already keep the label inside.
-- A labelled field is 53 high, a field without a label 45; both keep the same
+- A labeled field is 53 high, a field without a label 45; both keep the same
   frame and radius. A field without a label is not touched.
 - A required field marks its label with a red asterisk.
 - A hint is an icon with a tooltip inside the field on the desktop and a line
@@ -83,10 +83,10 @@ Decided 2026-10-04: **the label lives inside the field.**
 
 - Desktop height 28, corner radius 8: the site's ratio of radius to height,
   about 0.30.
-- **A label is centred on its capitals, not on its line box.** Segoe UI sets
+- **A label is centered on its capitals, not on its line box.** Segoe UI sets
   capitals 0.88 px low, so on Windows a button has two pixels more padding
   below than above (`MyTheme.buttonPadding`); the capitals end up 0.12 px from
-  the centre. Roboto is within a quarter of a pixel and gets nothing. macOS has
+  the center. Roboto is within a quarter of a pixel and gets nothing. macOS has
   not been measured.
 
 ## Not decided yet

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 
-/// One text field of a dialog form, labelled inside the field.
+/// One text field of a dialog form, labeled inside the field.
 ///
 /// `DialogTextField` in dialog.dart is the same idea, but it cannot be disabled
 /// and always takes the focus; the proxy dialog needs both under control.
@@ -11,7 +11,7 @@ import 'package:flutter_hbb/common.dart';
 /// the left of its field. A minimum is not a width: a label longer than that,
 /// as most Russian ones are, pushed its own field to the right, so the fields
 /// of one dialog started in different places, and a character counter under a
-/// field dragged that field's label off its centre line. With the label inside
+/// field dragged that field's label off its center line. With the label inside
 /// the field every field takes the dialog's full width in any language.
 class FormTextField extends StatefulWidget {
   const FormTextField({

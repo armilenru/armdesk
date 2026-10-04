@@ -327,9 +327,61 @@ Widget afterInside(BuildContext context) => Theme(
       child: Builder(builder: (c) => after(c, filled: true)),
     );
 
-Widget dialog(BuildContext context, Widget body) => AlertDialog(
+/// "RDP Settings" and "Add ID" as they are built now.
+Widget rdp(BuildContext context) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FormTextField(
+          key: const Key('f1'),
+          label: 'Порт',
+          hintText: '3389',
+          controller: TextEditingController(),
+        ).marginOnly(bottom: 8),
+        FormTextField(
+          key: const Key('f2'),
+          label: 'Имя пользователя',
+          controller: TextEditingController(text: 'Администратор'),
+        ).marginOnly(bottom: 8),
+        FormTextField(
+          key: const Key('f3'),
+          label: 'Пароль',
+          controller: TextEditingController(text: 'secret123'),
+          isPassword: true,
+          maxLength: 128,
+        ),
+      ],
+    );
+
+Widget addId(BuildContext context) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FormTextField(
+          key: const Key('f1'),
+          label: 'ID',
+          isRequired: true,
+          controller: TextEditingController(),
+        ).marginOnly(bottom: 8),
+        FormTextField(
+          key: const Key('f2'),
+          label: 'Псевдоним',
+          controller: TextEditingController(text: 'Бухгалтерия, ПК у окна'),
+        ).marginOnly(bottom: 8),
+        FormTextField(
+          key: const Key('f3'),
+          label: 'Заметка',
+          controller: TextEditingController(),
+          minLines: 1,
+          maxLines: 3,
+          maxLength: 300,
+        ),
+      ],
+    );
+
+Widget dialog(BuildContext context, Widget body,
+        {String title = 'SOCKS5/HTTP(S)-прокси'}) =>
+    AlertDialog(
       scrollable: true,
-      title: const Text('SOCKS5/HTTP(S)-прокси'),
+      title: Text(title),
       content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 500),
           child: ConstrainedBox(
@@ -357,6 +409,8 @@ void main() {
     'after': (c) => after(c),
     'after_filled': (c) => after(c, filled: true),
     'after_inside': afterInside,
+    'rdp': rdp,
+    'add_id': addId,
     'a': variantA,
     'b': variantB,
     'c': variantC,
@@ -386,7 +440,13 @@ void main() {
         home: Scaffold(
             backgroundColor: const Color(0xFFDDDDDD),
             body: Builder(
-                builder: (c) => Center(child: dialog(c, entry.value(c))))),
+                builder: (c) => Center(
+                    child: dialog(c, entry.value(c),
+                        title: const {
+                              'rdp': 'Настройки RDP',
+                              'add_id': 'Добавить ID'
+                            }[entry.key] ??
+                            'SOCKS5/HTTP(S)-прокси')))),
       ));
       await tester.pumpAndSettle();
 

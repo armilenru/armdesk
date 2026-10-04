@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/form_text_field.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -81,5 +82,46 @@ void main() {
         of: find.byKey(const Key('short')), matching: find.byType(TextField)));
 
     expect(field.enabled, isFalse);
+  });
+
+  testWidgets('a required field marks its label, an optional one does not',
+      (tester) async {
+    Widget one({required bool isRequired}) => MaterialApp(
+          home: Scaffold(
+              body: FormTextField(
+            label: 'ID',
+            isRequired: isRequired,
+            controller: TextEditingController(),
+            desktop: true,
+          )),
+        );
+
+    await tester.pumpWidget(one(isRequired: true));
+    expect(find.text('ID *', findRichText: true), findsOneWidget);
+
+    await tester.pumpWidget(one(isRequired: false));
+    expect(find.text('ID *', findRichText: true), findsNothing);
+    expect(find.text('ID'), findsOneWidget);
+  });
+
+  testWidgets('what the dialog asks of the input reaches the text field',
+      (tester) async {
+    final controller = TextEditingController();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+          body: FormTextField(
+        label: 'Port',
+        hintText: '3389',
+        controller: controller,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        desktop: true,
+      )),
+    ));
+
+    await tester.enterText(find.byType(TextField), 'a33b89');
+    expect(controller.text, '3389');
+    expect(
+        tester.widget<TextField>(find.byType(TextField)).decoration?.hintText,
+        '3389');
   });
 }

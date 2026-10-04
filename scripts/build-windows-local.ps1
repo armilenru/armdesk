@@ -1,24 +1,24 @@
 ﻿<#
 .SYNOPSIS
-    Сборка ArmDesk под Windows на самой Windows.
+    Builds ArmDesk for Windows on Windows itself.
 
 .DESCRIPTION
-    Запускается не руками, а из WSL через scripts/build-local.sh --target windows.
-    Отдельным файлом он лежит потому, что собрать Windows-клиент из Linux нельзя
-    в принципе: Flutter собирает Windows-десктоп через MSBuild и MSVC, и
-    кросс-компиляции у этой связки нет. Работать в WSL и собирать на хосте это
-    единственный рабочий вариант, а не компромисс.
+    Not run by hand but from WSL, through scripts/build-local.sh --target windows.
+    It is a separate file because a Windows client cannot be built from Linux at
+    all: Flutter builds the Windows desktop through MSBuild and MSVC, and that
+    pair has no cross-compilation. Working in WSL and building on the host is the
+    only way that works, not a compromise.
 
-    Исходники сюда приезжают уже с наложенным брендингом (его накладывает
-    WSL-сторона тем же composite action, что и CI), поэтому здесь только сборка.
-    Дублировать логику брендинга на PowerShell значило бы завести второй
-    источник правды и разъехаться с CI на первой же правке.
+    The sources arrive here with the branding already applied (the WSL side
+    applies it with the same composite action as CI), so this file only builds.
+    Repeating the branding logic in PowerShell would create a second source of
+    truth and drift from CI at the first edit.
 
 .PARAMETER Deps
-    Разовая установка инструментов через winget. Требует прав администратора.
+    One-time installation of the tools through winget. Needs administrator rights.
 
 .PARAMETER SourceDir
-    Каталог с исходниками на диске Windows. По умолчанию C:\dev\armilen-remote.
+    Directory with the sources on the Windows disk. Defaults to C:\dev\armilen-remote.
 #>
 [CmdletBinding()]
 param(
@@ -42,8 +42,8 @@ $VcpkgTriplet = "x64-windows-static"
 function Write-Step { param([string]$Text) Write-Host "`n==> $Text" -ForegroundColor Green }
 function Die { param([string]$Text) Write-Host "`nОшибка: $Text" -ForegroundColor Red; exit 1 }
 
-# Инструменты ставятся в текущую сессию PATH: winget правит переменную
-# машины, но уже запущенный процесс её не перечитывает.
+# The tools go into the PATH of the current session: winget changes the
+# machine variable, but a process that is already running does not reread it.
 function Add-ToPath {
 	param([string]$Dir)
 	if ((Test-Path $Dir) -and ($env:PATH -notlike "*$Dir*")) { $env:PATH = "$Dir;$env:PATH" }
@@ -57,34 +57,34 @@ function Initialize-Paths {
 			"$env:LOCALAPPDATA\Programs\Python\Python312",
 			"$env:LOCALAPPDATA\Programs\Python\Python312\Scripts",
 			"$env:ProgramFiles\Git\cmd",
-			# NASM из winget ставится в пользовательскую область, а не в
-			# Program Files: перечислены обе, Add-ToPath молча пропускает
-			# несуществующую
+			# winget installs NASM into the user area, not into Program Files: both
+			# are listed, Add-ToPath silently skips the one that does not exist
 			"$env:ProgramFiles\NASM",
 			"$env:LOCALAPPDATA\bin\NASM"
 		)) { Add-ToPath $p }
 
-	# Пиновая LLVM идёт впереди системной, а LIBCLANG_PATH снимает догадки:
-	# bindgen ищет libclang сам и без подсказки берёт первую попавшуюся
+	# The pinned LLVM goes ahead of the system one, and LIBCLANG_PATH removes the
+	# guessing: bindgen looks for libclang itself and takes the first one it finds
 	if (Test-Path (Join-Path $LlvmRoot "bin")) {
 		Add-ToPath (Join-Path $LlvmRoot "bin")
 		$env:LIBCLANG_PATH = Join-Path $LlvmRoot "bin"
 	}
 }
 
-# bindgen читает заголовки не компилятором MSVC, а libclang, и результат
-# зависит от её версии. Проверено на этом проекте: с libclang 22.1.8 из winget
-# ровно две структуры из 41, `aom_codec_enc_cfg` и `aom_codec_dec_cfg`, выходят
-# непрозрачными заглушками `{ _address: u8 }`, и сборка ломается уже в Rust на
-# «no field named threads». Обе объявляются вперёд указателем в aom_codec.h и
-# определяются позже, в aom_decoder.h: препроцессор тело видит, а парсер этой
-# версии его к forward-декларации не привязывает. На libclang 18.1.8 те же
-# заголовки разбираются верно и сборка проходит.
+# bindgen reads the headers with libclang, not with the MSVC compiler, and the
+# result depends on its version. Checked on this project: with libclang 22.1.8
+# from winget exactly two structures out of 41, `aom_codec_enc_cfg` and
+# `aom_codec_dec_cfg`, come out as opaque stubs `{ _address: u8 }`, and the
+# build breaks in Rust on "no field named threads". Both are forward-declared
+# through a pointer in aom_codec.h and defined later, in aom_decoder.h: the
+# preprocessor sees the body, but the parser of that version does not attach
+# it to the forward declaration. With libclang 18.1.8 the same headers are
+# parsed correctly and the build passes.
 #
-# CI пинит LLVM_VERSION 15.0.6, но у неё под Windows нет портативной сборки,
-# только установщик NSIS, а он требует прав администратора и отказывается
-# вставать рядом с уже установленной LLVM. 18.1.8 распаковывается из архива в
-# кеш пользователя, поэтому вся цель windows обходится без UAC на сборках.
+# CI pins LLVM_VERSION 15.0.6, but it has no portable build for Windows, only
+# an NSIS installer, which needs administrator rights and refuses to install
+# next to an LLVM that is already there. 18.1.8 is unpacked from an archive
+# into the user's cache, so the whole windows target builds without UAC.
 function Install-Llvm {
 	if (Test-Path (Join-Path $LlvmRoot "bin\libclang.dll")) {
 		Write-Step "LLVM $LlvmVersion на месте"
@@ -97,7 +97,7 @@ function Install-Llvm {
 	if (-not (Test-Path $archive)) {
 		Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
 	}
-	# tar в Windows 10+ это bsdtar, .tar.xz он распаковывает сам
+	# tar on Windows 10+ is bsdtar, it unpacks .tar.xz by itself
 	tar -xf $archive -C $LlvmRoot --strip-components=1
 	Remove-Item $archive -ErrorAction SilentlyContinue
 	if (-not (Test-Path (Join-Path $LlvmRoot "bin\libclang.dll"))) {
@@ -105,10 +105,10 @@ function Install-Llvm {
 	}
 }
 
-# Flutter создаёт симлинки на плагины, а Windows разрешает это обычному
-# пользователю только в режиме разработчика. Без него `flutter pub get` падает
-# уже в середине сборки, и сообщение теряется среди сотен строк MSBuild.
-# Проверяем заранее и говорим ровно то, что надо сделать.
+# Flutter creates symlinks to plugins, and Windows allows an ordinary user to
+# do that only in developer mode. Without it `flutter pub get` fails in the
+# middle of the build, and the message is lost among hundreds of MSBuild
+# lines. Check in advance and say exactly what has to be done.
 function Assert-DeveloperMode {
 	$key = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
 	$on = (Get-ItemProperty -Path $key -Name AllowDevelopmentWithoutDevLicense `
@@ -133,8 +133,9 @@ function Install-Deps {
 	Write-Step "Инструменты через winget"
 
 	$id = @{ Silent = "--silent"; Accept = "--accept-package-agreements", "--accept-source-agreements" }
-	# LLVM здесь намеренно нет: bindgen привязан к версии libclang, и свежая
-	# из winget ломает разбор заголовков. Ставится пиновая, см. Install-Llvm
+	# LLVM is deliberately not here: bindgen is tied to the libclang version, and
+	# a fresh one from winget breaks header parsing. The pinned one is installed,
+	# see Install-Llvm
 	foreach ($pkg in @(
 			"Git.Git",
 			"Python.Python.3.12",
@@ -145,15 +146,16 @@ function Install-Deps {
 		Write-Host "  · $pkg"
 		winget install --id $pkg --exact --disable-interactivity $id.Silent @($id.Accept) 2>&1 | Out-Null
 		if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) {
-			# -1978335189 = уже установлен, это не ошибка
+			# -1978335189 = already installed, not an error
 			Write-Host "    winget вернул $LASTEXITCODE, проверьте пакет вручную" -ForegroundColor Yellow
 		}
 	}
 
 	Install-Llvm
 
-	# Build Tools ставятся отдельно: без рабочей нагрузки VCTools у Flutter нет
-	# ни MSBuild, ни компилятора, и `flutter build windows` падает на конфигурации
+	# Build Tools are installed separately: without the VCTools workload Flutter
+	# has neither MSBuild nor a compiler, and `flutter build windows` fails at
+	# configuration
 	Write-Step "Visual Studio 2022 Build Tools, рабочая нагрузка C++ (несколько ГБ, долго)"
 	winget install --id Microsoft.VisualStudio.2022.BuildTools --exact `
 		--disable-interactivity --silent `
@@ -192,8 +194,9 @@ function Invoke-Build {
 	if (-not (Test-Path $SourceDir)) { Die "нет каталога с исходниками: $SourceDir. Сначала синхронизация из WSL" }
 	Initialize-Paths
 
-	# LLVM ставится из архива в кеш пользователя и прав не требует, поэтому
-	# сборка добирает её сама, а не отправляет за отдельным запуском -Deps
+	# LLVM is installed from an archive into the user's cache and needs no
+	# rights, so the build fetches it itself instead of sending the user off to a
+	# separate -Deps run
 	Install-Llvm
 	Initialize-Paths
 	Assert-DeveloperMode
@@ -208,23 +211,24 @@ function Invoke-Build {
 	Set-Location $SourceDir
 
 	Write-Step "Зависимости vcpkg ($VcpkgTriplet)"
-	# ffmpeg объявлен в vcpkg.json как host: true, то есть ставится в хостовый
-	# триплет. По умолчанию на Windows это x64-windows, а hwcodec ищет заголовки
-	# в x64-windows-static и падает на libavutil/pixfmt.h. CI приравнивает
-	# хостовый триплет к целевому этой же переменной, повторяем.
+	# ffmpeg is declared in vcpkg.json as host: true, so it is installed into the
+	# host triplet. On Windows that is x64-windows by default, while hwcodec looks
+	# for the headers in x64-windows-static and fails on libavutil/pixfmt.h. CI
+	# makes the host triplet equal to the target one with this same variable, and
+	# so do we.
 	$env:VCPKG_DEFAULT_HOST_TRIPLET = $VcpkgTriplet
-	# Аргумент кавычится целиком: `--flag="$var\path"` с кавычкой в середине
-	# токена парсер PowerShell не принимает
+	# The argument is quoted as a whole: the PowerShell parser does not accept
+	# `--flag="$var\path"` with a quote in the middle of a token
 	$installRoot = Join-Path $VcpkgRoot "installed"
 	& (Join-Path $VcpkgRoot "vcpkg.exe") install --triplet $VcpkgTriplet "--x-install-root=$installRoot"
 	if ($LASTEXITCODE -ne 0) { Die "vcpkg не собрал зависимости" }
 
-	# Та же строка, что в job build-for-windows-flutter. --skip-portable-pack
-	# оставляет распакованный каталог вместо самораспаковывающегося экзешника:
-	# для проверки правки он и нужен, а упаковка это лишние минуты
-	# Пути к пакетам Dart привязаны к машине: package_config.json хранит их
-	# абсолютными. Синхронизация из WSL их не привозит (исключены в rsync),
-	# поэтому создаём здесь. Заодно снимаем возможный остаток прежних прогонов.
+	# The same line as in the build-for-windows-flutter job. --skip-portable-pack
+	# leaves an unpacked directory instead of a self-extracting executable: that
+	# is what checking an edit needs, and packing is extra minutes
+	# Paths to Dart packages are tied to the machine: package_config.json keeps
+	# them absolute. The sync from WSL does not bring them (rsync excludes them),
+	# so they are created here. This also removes what earlier runs may have left.
 	Write-Step "Зависимости Dart (pub get)"
 	foreach ($stale in @("flutter\.dart_tool", "flutter\windows\flutter\ephemeral")) {
 		Remove-Item -Recurse -Force (Join-Path $SourceDir $stale) -ErrorAction SilentlyContinue

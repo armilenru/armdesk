@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
 #
-# Локальная сборка ArmDesk: проверить правку до пуша, не дожидаясь часа
-# GitHub Actions и ничего никуда не выкладывая.
+# Local ArmDesk build: check an edit before pushing, without waiting an hour
+# for GitHub Actions and without publishing anything anywhere.
 #
-# Выигрыш не в том, что машина быстрее раннера (она медленнее), а в том, что
-# она не начинает с нуля. Раннер каждый раз заново ставит Rust, собирает ffmpeg
-# через vcpkg и качает Flutter: это и есть тот час. Здесь всё лежит в кеше и
-# переживает запуск, поэтому вторая и следующие сборки укладываются в минуты.
+# The gain is not that this machine is faster than a runner (it is slower) but
+# that it does not start from scratch. A runner installs Rust, builds ffmpeg
+# through vcpkg and downloads Flutter anew every time: that is the hour. Here
+# everything sits in a cache and survives the run, so the second and later
+# builds take minutes.
 #
-#   ./scripts/build-local.sh --target windows --deps   # разово, ставит инструменты
-#   ./scripts/build-local.sh --target windows          # сборка
+#   ./scripts/build-local.sh --target windows --deps   # once, installs the tools
+#   ./scripts/build-local.sh --target windows          # build
 #   ./scripts/build-local.sh --target android
 #   ./scripts/build-local.sh --target linux [--full]
 #
-# Про Windows. Собрать Windows-клиент из WSL нельзя: Flutter собирает
-# Windows-десктоп через MSBuild и MSVC, кросс-компиляции у этой связки нет.
-# Поэтому цель windows работает иначе остальных: исходники с уже наложенным
-# брендингом синхронизируются на диск C:, а сборку на хосте запускает
-# scripts/build-windows-local.ps1 через интероп WSL. Результат остаётся на
-# стороне Windows, где его и надо запускать.
+# About Windows. A Windows client cannot be built from WSL: Flutter builds the
+# Windows desktop through MSBuild and MSVC, and that pair has no
+# cross-compilation. So the windows target works differently from the others:
+# the sources, with the branding already applied, are synced to drive C:, and
+# scripts/build-windows-local.ps1 starts the build on the host through WSL
+# interop. The result stays on the Windows side, where it has to be run anyway.
 #
-# Версии Rust, Flutter, NDK и коммит vcpkg читаются из
-# .github/workflows/flutter-build.yml. Захардкодить их здесь значило бы
-# получить локальную сборку на других версиях, чем CI: такая проверка хуже,
-# чем никакой.
+# The versions of Rust, Flutter, the NDK and the vcpkg commit are read from
+# .github/workflows/flutter-build.yml. Hardcoding them here would give a local
+# build on versions other than CI's: such a check is worse than none.
 #
-# Брендинг правит рабочее дерево, включая сабмодули, ровно как на CI. Это
-# ожидаемо, коммитить эти правки не нужно, откат обычным
+# Branding edits the working tree, submodules included, exactly as on CI. That
+# is expected, these edits are not to be committed, and they are undone with
 # `git checkout -- libs/hbb_common src/lang`.
 
 set -euo pipefail
@@ -91,7 +91,7 @@ die() {
 	exit 1
 }
 
-# Значение env-блока workflow: одна точка правды на CI и локальную сборку.
+# A value from the workflow's env block: one source of truth for CI and the local build.
 workflow_env() {
 	local key="$1" file="${2:-$WORKFLOW}" value
 	value="$(grep -m1 -E "^  ${key}: " "$file" | sed -E 's/^[^:]+: *"?([^"#]*[^"# ])"? *(#.*)?$/\1/')"
@@ -104,9 +104,10 @@ FLUTTER_VERSION="$(workflow_env FLUTTER_VERSION)"
 ANDROID_FLUTTER_VERSION="$(workflow_env ANDROID_FLUTTER_VERSION)"
 VCPKG_COMMIT_ID="$(workflow_env VCPKG_COMMIT_ID)"
 NDK_VERSION="$(workflow_env NDK_VERSION)"
-# CI пинит LLVM 15.0.6, но под Windows у неё нет портативной сборки: только
-# установщик NSIS, требующий администратора. Берём ближайшую версию с архивом,
-# на которой bindgen разбирает заголовки aom верно (проверено), см. Install-Llvm
+# CI pins LLVM 15.0.6, but it has no portable build for Windows: only an NSIS
+# installer that needs an administrator. We take the nearest version that has
+# an archive and with which bindgen parses the aom headers correctly
+# (checked), see Install-Llvm
 WIN_LLVM_VERSION="18.1.8"
 CARGO_NDK_VERSION="$(workflow_env CARGO_NDK_VERSION)"
 
@@ -114,8 +115,8 @@ export VCPKG_ROOT="$CACHE_DIR/vcpkg"
 export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
 export ANDROID_SDK_ROOT="$CACHE_DIR/android-sdk"
 
-# У Android своя версия Flutter. Один клон на обе цели заставлял бы
-# переключать ветку между сборками и каждый раз перекачивать движок.
+# Android has its own Flutter version. One clone for both targets would mean
+# switching the branch between builds and downloading the engine again each time.
 if [ "$TARGET" = "android" ]; then
 	FLUTTER_ROOT="$CACHE_DIR/flutter-$ANDROID_FLUTTER_VERSION"
 else
@@ -128,7 +129,7 @@ log "ArmDesk, локальная сборка (цель: $TARGET)"
 echo "    Rust    $RUST_VERSION"
 echo "    Кеш     $CACHE_DIR"
 
-# ── Общие помощники ──────────────────────────────────────────────────────────
+# ── Shared helpers ───────────────────────────────────────────────────────────
 
 require_sudo() {
 	sudo -n true 2>/dev/null && return 0
@@ -174,29 +175,29 @@ install_vcpkg() {
 	[ -x "$VCPKG_ROOT/vcpkg" ] || "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 }
 
-# Хостовый C-тулчейн нужен даже кросс-сборкам: build.rs у hwcodec гоняет bindgen
-# хостовым libclang. Без заголовков libc он падает на /usr/include/stdint.h с
-# «'bits/libc-header-start.h' file not found», и сообщение никак не намекает,
-# что дело в отсутствующем пакете.
+# Even cross builds need the host C toolchain: hwcodec's build.rs runs bindgen
+# with the host libclang. Without the libc headers it fails on
+# /usr/include/stdint.h with "'bits/libc-header-start.h' file not found", and
+# the message gives no hint that a package is missing.
 require_host_cc() {
 	command -v clang >/dev/null 2>&1 || die "нет clang: sudo apt-get install -y clang"
 	[ -f /usr/include/stdint.h ] || die "нет заголовков libc: sudo apt-get install -y libc6-dev"
 }
 
-# Мост Rust↔Dart не лежит в репозитории: `src/bridge_generated.rs` стоит в
-# .gitignore, при этом `lib.rs` объявляет `mod bridge_generated`. Без него не
-# собирается ни одна цель, даже `cargo build --lib`.
+# The Rust↔Dart bridge is not in the repository: `src/bridge_generated.rs` is
+# in .gitignore, while `lib.rs` declares `mod bridge_generated`. Without it no
+# target builds, not even `cargo build --lib`.
 #
-# Мост не генерируется здесь, а скачивается готовым, и это ровно то, что делают
-# сами сборочные джобы CI шагом «Restore bridge files»: генерирует его один
-# отдельный job, остальные берут артефакт. Локальная генерация повторяла бы
-# цепочку из cargo-expand, pub get, ffigen, cbindgen и freezed, где падение
-# любого звена оставляет наполовину записанный bridge_generated.rs с
-# незакрытым блоком DUMMY CODE FOR BINDGEN. Такой файл выглядит свежее входа,
-# проходит любую проверку по времени правки и ломает сборку ссылкой на
-# необъявленный Dart_Handle. Скачанный артефакт вдобавок побайтово совпадает с
-# тем, на чём собирается релиз, включая generated_bridge.freezed.dart, который
-# локальная генерация не создаёт вовсе.
+# The bridge is not generated here but downloaded ready-made, which is exactly
+# what CI's own build jobs do in the "Restore bridge files" step: one separate
+# job generates it, the rest take the artifact. Generating it locally would
+# repeat a chain of cargo-expand, pub get, ffigen, cbindgen and freezed, where
+# a failure of any link leaves a half-written bridge_generated.rs with an
+# unclosed DUMMY CODE FOR BINDGEN block. Such a file looks newer than its
+# input, passes any check by modification time and breaks the build with a
+# reference to an undeclared Dart_Handle. The downloaded artifact is also
+# byte-for-byte what the release is built from, including
+# generated_bridge.freezed.dart, which local generation does not create at all.
 BRIDGE_WORKFLOW="flutter-ci.yml"
 BRIDGE_ARTIFACT="bridge-artifact"
 
@@ -222,10 +223,11 @@ restore_bridge() {
 	echo "    из прогона $run_id"
 }
 
-# Gradle андроидного проекта работает на Java 17: CI-джоб явно прописывает
-# JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64. На системной Java 21 сборка
-# падает на несовместимости Gradle с версией JVM. Ставим свой JDK в кеш, а не
-# в систему, чтобы цель android оставалась без sudo.
+# The Android project's Gradle runs on Java 17: the CI job sets
+# JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 explicitly. On the system
+# Java 21 the build fails on Gradle being incompatible with the JVM version.
+# Our own JDK goes into the cache, not into the system, so that the android
+# target stays free of sudo.
 JDK_DIR="$CACHE_DIR/jdk-17"
 
 install_jdk17() {
@@ -247,15 +249,15 @@ android_ndk_dir() {
 	printf '%s' "$dir"
 }
 
-# Брендинг живёт в composite action, потому что часть правок меняет файлы
-# сабмодулей. Здесь прогоняются те же шаги, а не переписанные рядом: сборка с
-# другим брендингом, чем на CI, ничего бы не проверяла.
+# Branding lives in a composite action because some of its edits change files
+# of the submodules. The same steps are run here, not a copy written
+# alongside: a build with branding different from CI's would check nothing.
 apply_branding() {
 	log "Брендинг Armilen"
 	python3 -c 'import yaml' 2>/dev/null || die "нужен PyYAML: sudo apt-get install -y python3-yaml"
 
-	# Шаги отдаются как «имя\0тело\0»: тела многострочные, по переводу строки
-	# их не разделить
+	# The steps are passed as "name\0body\0": the bodies are multi-line and
+	# cannot be split by newline
 	while IFS= read -r -d '' name && IFS= read -r -d '' script; do
 		echo "  · $name"
 		bash -c "$script"
@@ -274,10 +276,10 @@ for step in action["runs"]["steps"]:
 
 # ── Windows ──────────────────────────────────────────────────────────────────
 
-# Windows PowerShell 5.1 читает .ps1 без BOM как ANSI: кириллица в скрипте
-# превращается в мусор, парсер спотыкается о случайную кавычку, и ошибка
-# приходит про синтаксис, а не про кодировку. Проверяем явно, потому что
-# редактор может снять BOM молча.
+# Windows PowerShell 5.1 reads a .ps1 without a BOM as ANSI: Cyrillic in the
+# script turns into garbage, the parser trips over a stray quote, and the
+# error is about syntax, not about encoding. Checked explicitly because an
+# editor can drop the BOM silently.
 assert_ps_bom() {
 	local ps="scripts/build-windows-local.ps1"
 	[ "$(head -c 3 "$ps" | xxd -p)" = "efbbbf" ] ||
@@ -289,16 +291,17 @@ sync_to_windows() {
 	log "Синхронизация исходников на диск C:"
 	command -v rsync >/dev/null 2>&1 || die "нужен rsync: sudo apt-get install -y rsync"
 	mkdir -p "$WIN_SRC_DIR"
-	# target/ и flutter/build/ остаются на стороне Windows: это её артефакты, и
-	# таскать их через 9p значило бы каждый раз убивать инкрементальность.
+	# target/ and flutter/build/ stay on the Windows side: they are its
+	# artifacts, and dragging them through 9p would kill incrementality every time.
 	#
-	# Всё остальное в списке это состояние конкретной машины, и через границу
-	# WSL и Windows оно ехать не должно. Flutter записывает туда абсолютные
-	# пути: в package_config.json путями к пакетам, в ephemeral/.plugin_symlinks
-	# симлинками на них. После `pub get` в WSL это /home/profax/.pub-cache/...,
-	# и на диске C: сборка либо ищет исходники по linux-путям, либо натыкается
-	# на битые симлинки в CMake. Пересоздаётся всё это `pub get` уже на хосте,
-	# поэтому здесь ровно один принцип: едут только исходники.
+	# Everything else in the list is the state of a particular machine, and it
+	# must not cross the border between WSL and Windows. Flutter writes absolute
+	# paths there: into package_config.json as paths to packages, into
+	# ephemeral/.plugin_symlinks as symlinks to them. After `pub get` in WSL that
+	# is /home/profax/.pub-cache/..., and on drive C: the build either looks for
+	# sources by Linux paths or runs into broken symlinks in CMake. All of it is
+	# recreated by `pub get` on the host, so there is one principle here: only
+	# sources travel.
 	rsync -a --delete \
 		--exclude 'target/' \
 		--exclude 'flutter/build/' \
@@ -312,8 +315,8 @@ sync_to_windows() {
 }
 
 windows_deps() {
-	# Мост кладётся на сторону WSL до синхронизации: файлы платформенно
-	# независимы, и на хост они уезжают вместе с исходниками
+	# The bridge is put on the WSL side before the sync: the files are platform
+	# independent, and they go to the host together with the sources
 	apply_branding
 	restore_bridge
 	sync_to_windows
@@ -363,8 +366,8 @@ build_windows() {
 }
 
 # ── Android ──────────────────────────────────────────────────────────────────
-# Единственная цель, которой не нужен ни sudo, ни Windows: SDK, NDK, Rust и
-# Flutter ставятся в домашний каталог.
+# The only target that needs neither sudo nor Windows: the SDK, the NDK, Rust
+# and Flutter are installed into the home directory.
 
 android_deps() {
 	require_host_cc
@@ -385,9 +388,9 @@ android_deps() {
 	fi
 
 	local sdkmanager="$tools_dir/latest/bin/sdkmanager"
-	# В workflow версия вида r28c, а sdkmanager знает только числовые. Берём
-	# старшую в том же мажоре, чтобы не хардкодить соответствие r28c → 28.x.y:
-	# оно поедет при следующем обновлении CI
+	# The workflow has a version like r28c, while sdkmanager knows only numeric
+	# ones. Take the highest in the same major so as not to hardcode the mapping
+	# r28c → 28.x.y: it would drift at the next CI update
 	local ndk_major="${NDK_VERSION#r}"
 	ndk_major="${ndk_major%%[a-z]*}"
 	local ndk_pkg
@@ -400,9 +403,9 @@ android_deps() {
 	log "cargo-ndk $CARGO_NDK_VERSION"
 	cargo install cargo-ndk --version "$CARGO_NDK_VERSION" --locked
 
-	# hwcodec линкуется с ffmpeg из vcpkg и под Android тоже: без этого его
-	# build.rs падает на `VCPKG_ROOT` со скупым `NotPresent`. Триплет собирает
-	# тот же скрипт, что и на CI, а не своя копия команды vcpkg
+	# hwcodec links with ffmpeg from vcpkg under Android too: without it its
+	# build.rs fails on `VCPKG_ROOT` with a terse `NotPresent`. The triplet is
+	# built by the same script as on CI, not by our own copy of the vcpkg command
 	install_vcpkg
 	log "Зависимости vcpkg под Android (arm64-android, первый раз это долго)"
 	ANDROID_NDK_HOME="$(android_ndk_dir)" ANDROID_NDK_ROOT="$(android_ndk_dir)" \
@@ -423,11 +426,11 @@ build_android() {
 	export ANDROID_NDK_HOME="$ndk"
 	export ANDROID_NDK_ROOT="$ndk"
 
-	# bindgen внутри hwcodec зовёт libclang с андроидным таргетом, но набор
-	# инклюдов берёт хостовый. На ubuntu-22.04 с clang 14 это сходило с рук, на
-	# clang 18 он читает /usr/include/stdint.h и не находит multiarch-заголовок
-	# bits/libc-header-start.h. Явный sysroot из NDK убирает неоднозначность и
-	# не мешает более старым clang
+	# bindgen inside hwcodec calls libclang with the Android target but takes the
+	# host set of includes. On ubuntu-22.04 with clang 14 it got away with that,
+	# with clang 18 it reads /usr/include/stdint.h and does not find the
+	# multiarch header bits/libc-header-start.h. An explicit sysroot from the NDK
+	# removes the ambiguity and does not get in the way of older clang
 	export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
 
 	log "Ядро Rust под aarch64 (ndk_arm64.sh, как на CI)"
@@ -438,10 +441,10 @@ build_android() {
 	cp "./target/aarch64-linux-android/release/liblibrustdesk.so" "$jni/librustdesk.so"
 	cp "$ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" "$jni/"
 
-	# Релизного ключа здесь нет и быть не должно, поэтому apk подписывается
-	# отладочным. Тот же приём, что на CI
+	# There is no release key here and there must not be one, so the apk is
+	# signed with the debug key. The same approach as on CI
 	sed -i "s/signingConfigs.release/signingConfigs.debug/g" ./flutter/android/app/build.gradle
-	# Тот же подъём памяти Gradle, что на CI: 1 ГБ по умолчанию не хватает
+	# The same Gradle memory increase as on CI: the default 1 GB is not enough
 	sed -i "s/org.gradle.jvmargs=-Xmx1024M/org.gradle.jvmargs=-Xmx2g/g" ./flutter/android/gradle.properties
 
 	log "APK (Java 17)"
@@ -453,8 +456,8 @@ build_android() {
 	local apk="flutter/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
 	[ -f "$apk" ] || die "Flutter не отдал apk в $apk"
 
-	# Из WSL файл на телефон не перекинуть, поэтому копия кладётся в Загрузки
-	# Windows, откуда его видно проводником
+	# A file cannot be sent to the phone from WSL, so a copy is put into the
+	# Windows Downloads folder, where Explorer can see it
 	local user drop
 	user="$(powershell.exe -NoProfile -Command 'Write-Output $env:USERNAME' 2>/dev/null | tr -d '\r\n')"
 	drop="/mnt/c/Users/$user/Downloads"
@@ -481,7 +484,7 @@ linux_deps() {
 		libxcb-randr0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
 		libxdo-dev libxfixes-dev nasm ninja-build pkg-config \
 		python3 python3-yaml rpm rsync unzip wget xz-utils libssl-dev zip
-	# libopus берётся из vcpkg, системный конфликтует при линковке
+	# libopus comes from vcpkg, the system one conflicts at link time
 	sudo apt-get remove -y libopus-dev || true
 
 	install_rust
@@ -517,7 +520,7 @@ build_linux() {
 	log "Готово: $REPO_ROOT/flutter/build/linux/x64/release/bundle"
 }
 
-# ── Диспетчер ────────────────────────────────────────────────────────────────
+# ── Dispatcher ───────────────────────────────────────────────────────────────
 
 if [ "$DEPS" -eq 1 ]; then
 	case "$TARGET" in

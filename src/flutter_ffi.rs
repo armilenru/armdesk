@@ -1175,16 +1175,15 @@ pub fn main_check_connect_status() {
 }
 
 pub fn main_is_using_public_server() -> bool {
-    // Armilen: только этот FFI-геттер, не crate::using_public_server() -
-    // ту же функцию использует и rendezvous_mediator.rs (DDNS-хелпер), и
-    // client.rs (allow_more), их поведение не трогаем. Здесь же она кормит
-    // единственный виджет UI ("настройте собственный сервер для более
-    // быстрого подключения" в connection_page.dart): condition там на самом
-    // деле проверяет только пользовательское поле custom-rendezvous-server
-    // (у всех наших пользователей пустое), а не собранный по умолчанию сервер
-    // - из-за этого подсказка показывалась бы всегда, хотя наш дефолт
-    // (RENDEZVOUS_SERVERS, патчится в apply-branding) уже собственный
-    // hbbs/hbbr, действие не нужно.
+    // Armilen: only this FFI getter, not crate::using_public_server():
+    // rendezvous_mediator.rs (the DDNS helper) and client.rs (allow_more) use
+    // the same function, and their behaviour is left alone. Here it feeds a
+    // single UI widget ("set up your own server for a faster connection" in
+    // connection_page.dart): the condition there actually checks only the
+    // user's custom-rendezvous-server field (empty for all our users), not
+    // the server built in by default, so the hint would always be shown,
+    // although our default (RENDEZVOUS_SERVERS, patched in apply-branding)
+    // is already our own hbbs/hbbr and no action is needed.
     false
 }
 

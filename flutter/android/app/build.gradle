@@ -98,16 +98,16 @@ android {
     }
 
     defaultConfig {
-        // Своё имя пакета, а не апстримное com.carriez.flutter_hbb: Android
-        // различает приложения именно по нему, и с чужим ArmDesk и официальный
-        // RustDesk не могут стоять на одном устройстве, а обновление одного
-        // затирает другое. Меняется только applicationId; package в манифесте
-        // (пространство имён Kotlin-классов) остаётся апстримным, иначе
-        // пришлось бы переносить исходники и ловить конфликты на каждой
-        // синхронизации.
+        // Our own package name, not upstream's com.carriez.flutter_hbb: Android
+        // tells applications apart by it, and with someone else's name ArmDesk and
+        // the official RustDesk cannot be installed on one device, and an update of
+        // one overwrites the other. Only applicationId changes; package in the
+        // manifest (the namespace of the Kotlin classes) stays upstream's, otherwise
+        // the sources would have to be moved and conflicts caught on every sync.
         //
-        // Смена рвёт цепочку обновлений: установленное приложение со старым id
-        // новое не увидит и встанет рядом, старое надо снести руками.
+        // The change breaks the update chain: an installed application with the old
+        // id will not see the new one and will stand next to it, the old one has to
+        // be removed by hand.
         applicationId "ru.armilen.armdesk"
         minSdkVersion 22
         targetSdkVersion 36

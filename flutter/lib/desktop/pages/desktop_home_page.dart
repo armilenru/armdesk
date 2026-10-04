@@ -967,6 +967,8 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
                     obscureText: true,
                     decoration: InputDecoration(
                         labelText: translate('Password'),
+                        border: MyTheme.insideLabelBorder,
+                        contentPadding: MyTheme.insideLabelPadding,
                         errorText: errMsg0.isNotEmpty ? errMsg0 : null),
                     controller: p0,
                     autofocus: true,
@@ -997,6 +999,8 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
                     obscureText: true,
                     decoration: InputDecoration(
                         labelText: translate('Confirmation'),
+                        border: MyTheme.insideLabelBorder,
+                        contentPadding: MyTheme.insideLabelPadding,
                         errorText: errMsg1.isNotEmpty ? errMsg1 : null),
                     controller: p1,
                     onChanged: (value) {

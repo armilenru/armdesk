@@ -812,6 +812,8 @@ class _FileManagerViewState extends State<FileManagerView> {
                                     labelText: translate(
                                       "Please enter the folder name",
                                     ),
+                                    border: MyTheme.insideLabelBorder,
+                                    contentPadding: MyTheme.insideLabelPadding,
                                     errorText: errorText,
                                   ),
                                   controller: name,

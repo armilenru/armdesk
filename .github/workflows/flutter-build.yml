@@ -3005,6 +3005,39 @@ jobs:
     permissions:
       contents: write
     steps:
+      # GitHub shows a release under the date it was published and takes its
+      # commit from the tag, and uploading files renews neither: the rolling
+      # release kept the date and the commit of the day it was first made. So
+      # the tag is moved to the commit that was built, and the release is
+      # unpublished and published again, the only thing that renews the date.
+      #
+      # It stands first in this job so that nothing here reads the release in
+      # the second it is a draft: the copy into the version release runs after
+      # it. A release left as a draft cannot be found by its tag, and the site
+      # would get no files, so publishing it back is retried, and a failure
+      # there fails the job and reaches the ops chat.
+      - name: Date the nightly release by this build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api="repos/${GITHUB_REPOSITORY}"
+          gh api -X PATCH "${api}/git/refs/tags/${TAG_NAME}" -f sha="${GITHUB_SHA}" -F force=true --jq '.object.sha' \
+            || echo "::warning::the ${TAG_NAME} tag was not moved to ${GITHUB_SHA}"
+          id=$(gh api "${api}/releases/tags/${TAG_NAME}" --jq .id)
+          if ! gh api -X PATCH "${api}/releases/${id}" -F draft=true --jq '.draft'; then
+            echo "::warning::the ${TAG_NAME} release was not unpublished, its date stays"
+            exit 0
+          fi
+          for attempt in 1 2 3 4 5; do
+            if gh api -X PATCH "${api}/releases/${id}" -F draft=false --jq '.published_at'; then
+              exit 0
+            fi
+            sleep $((attempt * 5))
+          done
+          echo "::error::the ${TAG_NAME} release is left as a draft: publish it by hand"
+          exit 1
+
       - name: Create the release unless it exists
         env:
           GH_TOKEN: ${{ github.token }}

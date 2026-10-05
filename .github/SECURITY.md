@@ -3,7 +3,8 @@
 This policy covers ArmDesk: the code this fork adds or changes, its release
 builds, the update check against www.armilen.ru, and the servers the client
 connects to by default. A vulnerability in RustDesk's own code goes to the
-RustDesk team, as described in [docs/SECURITY.md](../docs/SECURITY.md).
+RustDesk team, as described in
+[their security policy](https://github.com/rustdesk/rustdesk/security/policy).
 
 ## Supported versions
 

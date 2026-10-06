@@ -1,7 +1,7 @@
 # Security policy
 
 This policy covers ArmDesk: the code this fork adds or changes, its release
-builds, the update check against www.armilen.ru, and the servers the client
+builds, the updates it gets from www.armilen.ru, and the servers the client
 connects to by default. A vulnerability in RustDesk's own code goes to the
 RustDesk team, as described in
 [their security policy](https://github.com/rustdesk/rustdesk/security/policy).
@@ -13,10 +13,9 @@ Only the latest release gets fixes. Installed clients update themselves unless
 
 ## Reporting a vulnerability
 
-Please don't open a public pull request or post details anywhere public.
-Report privately in one of two ways:
+Please report privately, not in a pull request or anywhere else in public:
 
-- on GitHub: the **Security** tab of this repository, then **Report a vulnerability**;
+- on GitHub: [Report a vulnerability](https://github.com/armilenru/armdesk/security/advisories/new);
 - by email: info@armilen.ru.
 
 Include the ArmDesk version, the platform, and the steps to reproduce.

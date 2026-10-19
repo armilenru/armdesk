@@ -1702,6 +1702,9 @@ impl Connection {
                             if text.trim().is_empty() {
                                 return Ok(text);
                             }
+                            if is_api_server_success(&text) {
+                                return Ok(text);
+                            }
                             let server_err = serde_json::from_str::<Value>(&text)
                                 .ok()
                                 .and_then(|v| v.get("error")?.as_str().map(|s| s.to_owned()))
@@ -7112,10 +7115,31 @@ fn wildcard_match(pattern: &str, text: &str) -> bool {
     pi == p.len()
 }
 
+// The open-source API server answers a stored audit record with
+// {"code":0,"message":"success",...} rather than an empty body.
+fn is_api_server_success(text: &str) -> bool {
+    serde_json::from_str::<Value>(text)
+        .ok()
+        .and_then(|v| v.get("code")?.as_i64())
+        == Some(0)
+}
+
 #[cfg(test)]
 mod test {
     #[allow(unused)]
     use super::*;
+
+    #[test]
+    fn test_api_server_success_body() {
+        assert!(is_api_server_success(
+            r#"{"code":0,"message":"success","data":""}"#
+        ));
+        assert!(!is_api_server_success(
+            r#"{"code":101,"message":"ParamsError"}"#
+        ));
+        assert!(!is_api_server_success(r#"{"error":"db write failed"}"#));
+        assert!(!is_api_server_success("<html>maintenance</html>"));
+    }
 
     // The registry is process-global and the harness runs tests in parallel threads, so every
     // test that admits connections holds this first; a poisoned lock is still a lock.

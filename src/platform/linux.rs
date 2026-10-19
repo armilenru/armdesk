@@ -994,6 +994,26 @@ fn stop_rustdesk_servers() {
         r##"ps -ef | grep -E '{} +--server' | awk '{{print $2}}' | xargs -r kill -9"##,
         crate::get_app_name().to_lowercase(),
     ));
+    stop_own_exe_servers();
+}
+
+// A build under its own app name keeps the upstream executable name, so the
+// app-name pattern above never matches its servers.
+fn stop_own_exe_servers() {
+    let Ok(exe) = std::env::current_exe().and_then(std::fs::canonicalize) else {
+        return;
+    };
+    let mut sys = hbb_common::sysinfo::System::new();
+    sys.refresh_processes();
+    for process in sys.processes().values() {
+        if process.cmd().get(1).map_or(true, |arg| arg != "--server") {
+            continue;
+        }
+        if std::fs::canonicalize(process.exe()).map_or(false, |path| path == exe) && !process.kill()
+        {
+            log::warn!("Failed to kill --server process {}", process.pid());
+        }
+    }
 }
 
 fn should_start_server(

@@ -1196,8 +1196,23 @@ pub(crate) fn is_server_running() -> bool {
 
     let output_str = String::from_utf8_lossy(&output.stdout);
     let is_running = output_str.contains(&format!("{} --server", app_name));
+    let is_running = is_running || is_own_exe_server_running();
     IS_SERVER_RUNNING.store(if is_running { 1 } else { 2 }, Ordering::SeqCst);
     is_running
+}
+
+// A build under its own app name keeps the upstream executable name, so its
+// server never shows up in the `ps | grep <app name>` match above.
+fn is_own_exe_server_running() -> bool {
+    let Ok(exe) = std::env::current_exe().and_then(std::fs::canonicalize) else {
+        return false;
+    };
+    let mut sys = hbb_common::sysinfo::System::new();
+    sys.refresh_processes();
+    sys.processes().values().any(|process| {
+        process.cmd().get(1).map_or(false, |arg| arg == "--server")
+            && std::fs::canonicalize(process.exe()).map_or(false, |path| path == exe)
+    })
 }
 
 // The logical size reported by portal may be different from the size reported by `get_displays()`.

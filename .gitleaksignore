@@ -1,0 +1,16 @@
+# Upstream RustDesk: its public server keys (license.rs, custom_server.rs tests, tr.rs),
+# its Firebase client key, and libsodium constant names in a bundled script. None is ours or secret.
+1b899a5ce8cdc6aba83db1f3e8335fba2bdead34:src/license.rs:generic-api-key:125
+1b899a5ce8cdc6aba83db1f3e8335fba2bdead34:src/license.rs:generic-api-key:128
+1b899a5ce8cdc6aba83db1f3e8335fba2bdead34:src/license.rs:generic-api-key:136
+204e81a700a1436d0b12900b7d9d7a0cd2ef2ce8:src/tr.rs:generic-api-key:562
+204e81a700a1436d0b12900b7d9d7a0cd2ef2ce8:src/tr.rs:generic-api-key:646
+3fd0982af57fb62e8f994bedfc546310189df0c3:web/index.html:gcp-api-key:110
+4887cdb7566c6231a3d1879e94d49c6d6a76b4ba:flutter/web/index.html:gcp-api-key:168
+7ad28b5005beaa3723b6d77a25c04005406cd93f:web/assets/vendor.b7bb6fa2.js:generic-api-key:1
+85ae3916cb7a4d772db979813739a8b58c2de577:src/custom_server.rs:generic-api-key:167
+87343945237b5bbc21733dcbdf5409926f7f71d8:flutter_hbb/android/app/google-services.json:gcp-api-key:24
+9ac3128309fa9812016fd7c3ce43e40d3c24003f:src/license.rs:generic-api-key:117
+aa6f8795042b9019128109bd8fa3d98fb9c1969a:src/license.rs:generic-api-key:156
+abaa7adfa8b201971d840592546951170969142b:src/license.rs:generic-api-key:113
+bc211c8031ac3b9b39ab14820ac1d8d064c84580:src/custom_server.rs:generic-api-key:180

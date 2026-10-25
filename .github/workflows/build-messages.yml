@@ -25,6 +25,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      # Actions from actions/* keep their tags; third-party ones are pinned by hash
+      # nosemgrep: github-actions-mutable-action-tag
       - uses: actions/checkout@v4
       - name: Both languages carry the same messages
         run: node scripts/check-build-messages.mjs

@@ -40,6 +40,8 @@ jobs:
     permissions:
       contents: write
     uses: ./.github/workflows/flutter-build.yml
+    # The called workflow lives in this repository and signs the release
+    # nosemgrep: secrets-inherit
     secrets: inherit
     with:
       upload-artifact: true

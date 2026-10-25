@@ -1,0 +1,7 @@
+# trivy exceptions (ws secscan). The Dockerfile is upstream's build image, not a service.
+
+# Runs as root, no HEALTHCHECK, `RUN cd`, wget and curl: a build container
+DS-0002
+DS-0013
+DS-0014
+DS-0026

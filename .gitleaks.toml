@@ -1,0 +1,8 @@
+# gitleaks settings (ws secscan): the default rules plus exceptions with reasons.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Translations: the word \"key\" in UI strings, never a secret"
+paths = ['''^src/lang/''']

@@ -16,6 +16,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      # Actions from actions/* keep their tags; third-party ones are pinned by hash
+      # nosemgrep: github-actions-mutable-action-tag
       - uses: actions/checkout@v4
       - name: Both READMEs agree with each other and with the code
         run: node scripts/check-readme.mjs

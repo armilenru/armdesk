@@ -43,6 +43,8 @@ RUN git clone --branch 2023.04.15 --depth=1 https://github.com/microsoft/vcpkg &
     /vcpkg/bootstrap-vcpkg.sh -disableMetrics && \
     /vcpkg/vcpkg --disable-metrics install libvpx libyuv opus aom
 
+# Upstream build image: sudo only writes the build user's sudoers entry
+# nosemgrep: no-sudo-in-dockerfile
 RUN groupadd -r user && \
     useradd -r -g user user --home /home/user && \
     mkdir -p /home/user/rustdesk && \

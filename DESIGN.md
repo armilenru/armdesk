@@ -109,3 +109,13 @@ ARMDESK_STAND_PLATFORM=linux ARMDESK_STAND_OUT=/some/dir flutter test --update-g
 It needs Segoe UI: `ARMDESK_STAND_FONTS` points at the folder, under WSL that
 is `/mnt/c/Windows/Fonts` by default. Without the fonts it is skipped. The
 tests in `flutter/test/` that guard these rules need no fonts.
+
+## Departures from the shared principles
+
+The owner's shared floor and defaults (agent rules, `design-principles.md`)
+apply; this file keeps only what differs. The two below are open until the
+client is restyled after the new site.
+
+- The label lives inside the field; the shared default puts it above.
+- Desktop buttons are 28 high; the shared default for a dense panel is
+  32–40. The floor holds: a mouse target of 24 or more.
